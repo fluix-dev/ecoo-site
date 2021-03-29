@@ -334,11 +334,9 @@
             <br>
 
             {% if past_contests %}
-                <h4>{{ _('Past Contests') }}</h4>
+                <h4 id="past-contests">{{ _('Past Contests') }}</h4>
                 {% if page_obj and page_obj.has_other_pages() %}
-                    <div style="margin-bottom: 4px;">
-                        {% include "list-pages.html" %}
-                    </div>
+                    <div class="top-pagination-bar">{% include "list-pages.html" %}</div>
                 {% endif %}
                 <table class="contest-list table striped">
                     <thead>
@@ -355,36 +353,34 @@
                     </tr>
                     </thead>
                     <tbody>
-                    {% for contest in past_contests %}
-                        <tr>
-                            <td>
-                                <div class="contest-block">
-                                    {{ contest_head(contest) }}
-                                    {{ time_left(contest) }}
-                                </div>
-                            </td>
-                            <td>
-                                {{ user_count(contest, request.user) }}
-                            </td>
-                            {% if not request.in_contest %}
+                        {% for contest in past_contests %}
+                            <tr>
                                 <td>
-                                    {% if contest.is_joinable_by(request.user) %}
-                                        <form action="{{ url('contest_join', contest.key) }}" method="post">
-                                            {% csrf_token %}
-                                            <input type="submit" class="unselectable button full participate-button"
-                                                   value="{{ _('Virtual join') }}">
-                                        </form>
-                                    {% endif %}
+                                    <div class="contest-block">
+                                        {{ contest_head(contest) }}
+                                        {{ time_left(contest) }}
+                                    </div>
                                 </td>
-                            {% endif %}
-                        </tr>
-                    {% endfor %}
+                                <td>
+                                    {{ user_count(contest, request.user) }}
+                                </td>
+                                {% if not request.in_contest %}
+                                    <td>
+                                        {% if contest.is_joinable_by(request.user) %}
+                                            <form action="{{ url('contest_join', contest.key) }}" method="post">
+                                                {% csrf_token %}
+                                                <input type="submit" class="unselectable button full participate-button"
+                                                       value="{{ _('Virtual join') }}">
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
                 {% if page_obj and page_obj.has_other_pages() %}
-                    <div style="margin-top: 10px;">
-                        {% include "list-pages.html" %}
-                    </div>
+                    <div class="bottom-pagination-bar">{% include "list-pages.html" %}</div>
                 {% endif %}
             {% endif %}
         </div>
