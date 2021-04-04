@@ -20,14 +20,13 @@ from django.utils.functional import cached_property
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _, gettext_lazy
-from django.views.generic import ListView, View
+from django.views.generic import DetailView, ListView, View
 from django.views.generic.base import TemplateResponseMixin
 from django.views.generic.detail import SingleObjectMixin
 
-from judge.comments import CommentedDetailView
 from judge.forms import ProblemCloneForm, ProblemSubmitForm
-from judge.models import ContestSubmission, Judge, Language, Problem, ProblemGroup, \
-    ProblemTranslation, ProblemType, RuntimeVersion, Solution, Submission, SubmissionSource, \
+from judge.models import ContestSubmission, Judge, Language, Problem, \
+    ProblemTranslation, RuntimeVersion, Solution, Submission, SubmissionSource, \
     TranslatedProblemForeignKeyQuerySet
 from judge.pdf_problems import DefaultPdfMaker, HAS_PDF
 from judge.utils.diggpaginator import DiggPaginator
@@ -102,7 +101,7 @@ class SolvedProblemMixin(object):
         return self.request.profile
 
 
-class ProblemSolution(SolvedProblemMixin, ProblemMixin, TitleMixin, CommentedDetailView):
+class ProblemSolution(SolvedProblemMixin, ProblemMixin, TitleMixin, DetailView):
     context_object_name = 'problem'
     template_name = 'problem/editorial.html'
 
@@ -123,9 +122,6 @@ class ProblemSolution(SolvedProblemMixin, ProblemMixin, TitleMixin, CommentedDet
         context['solution'] = solution
         context['has_solved_problem'] = self.object.id in self.get_completed_problems()
         return context
-
-    def get_comment_page(self):
-        return 's:' + self.object.code
 
 
 class ProblemRaw(ProblemMixin, TitleMixin, TemplateResponseMixin, SingleObjectMixin, View):
@@ -150,12 +146,9 @@ class ProblemRaw(ProblemMixin, TitleMixin, TemplateResponseMixin, SingleObjectMi
             ))
 
 
-class ProblemDetail(ProblemMixin, SolvedProblemMixin, CommentedDetailView):
+class ProblemDetail(ProblemMixin, SolvedProblemMixin, DetailView):
     context_object_name = 'problem'
     template_name = 'problem/problem.html'
-
-    def get_comment_page(self):
-        return 'p:%s' % self.object.code
 
     def is_comment_locked(self):
         return ((super().is_comment_locked() or not self.object.is_public) and
@@ -288,8 +281,8 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
     context_object_name = 'problems'
     template_name = 'problem/list.html'
     paginate_by = 50
-    sql_sort = frozenset(('points', 'ac_rate', 'user_count', 'code'))
-    manual_sort = frozenset(('name', 'group', 'solved', 'type'))
+    sql_sort = frozenset(('points', 'user_count', 'code'))
+    manual_sort = frozenset(('name', 'solved', 'type'))
     all_sorts = sql_sort | manual_sort
     default_desc = frozenset(('points', 'ac_rate', 'user_count'))
     default_sort = 'code'
@@ -309,8 +302,6 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
                 queryset = queryset.order_by(self.order, 'id')
             elif sort_key == 'name':
                 queryset = queryset.order_by(self.order.replace('name', 'i18n_name'), 'id')
-            elif sort_key == 'group':
-                queryset = queryset.order_by(self.order + '__name', 'id')
             elif sort_key == 'solved':
                 if self.request.user.is_authenticated:
                     profile = self.request.profile
@@ -326,11 +317,6 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
 
                     queryset = list(queryset)
                     queryset.sort(key=_solved_sort_order, reverse=self.order.startswith('-'))
-            elif sort_key == 'type':
-                if self.show_types:
-                    queryset = list(queryset)
-                    queryset.sort(key=lambda problem: problem.types_list[0] if problem.types_list else '',
-                                  reverse=self.order.startswith('-'))
             paginator.object_list = list(queryset)
         return paginator
 
@@ -341,7 +327,7 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
         return self.request.profile
 
     def get_contest_queryset(self):
-        queryset = self.profile.current_contest.contest.contest_problems.select_related('problem__group') \
+        queryset = self.profile.current_contest.contest.contest_problems \
             .defer('problem__description').order_by('problem__code') \
             .annotate(user_count=Count('submission__participation', distinct=True)) \
             .order_by('order')
@@ -353,23 +339,18 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
             'code': p['problem__code'],
             'name': p['problem__name'],
             'i18n_name': p['i18n_name'],
-            'group': {'full_name': p['problem__group__full_name']},
             'points': p['points'],
             'partial': p['partial'],
             'user_count': p['user_count'],
         } for p in queryset.values('problem_id', 'problem__code', 'problem__name', 'i18n_name',
-                                   'problem__group__full_name', 'points', 'partial', 'user_count')]
+                                   'points', 'partial', 'user_count')]
 
     def get_normal_queryset(self):
-        queryset = Problem.get_visible_problems(self.request.user).select_related('group')
+        queryset = Problem.get_visible_problems(self.request.user)
 
         if self.profile is not None and self.hide_solved:
             queryset = queryset.exclude(id__in=Submission.objects.filter(user=self.profile, points=F('problem__points'))
                                         .values_list('problem__id', flat=True))
-        if self.show_types:
-            queryset = queryset.prefetch_related('types')
-        if self.category is not None:
-            queryset = queryset.filter(group__id=self.category)
 
         if self.request.user.has_perm('judge.see_private_problem'):
             filter = None
@@ -381,8 +362,6 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
             if filter is not None:
                 queryset = queryset.filter(filter)
 
-        if self.selected_types:
-            queryset = queryset.filter(types__in=self.selected_types)
         if 'search' in self.request.GET:
             self.search_query = query = ' '.join(self.request.GET.getlist('search')).strip()
             if query:
@@ -408,7 +387,6 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
     def get_context_data(self, **kwargs):
         context = super(ProblemList, self).get_context_data(**kwargs)
         context['hide_solved'] = 0 if self.in_contest else int(self.hide_solved)
-        context['show_types'] = 0 if self.in_contest else int(self.show_types)
         context['full_text'] = 0 if self.in_contest else int(self.full_text)
         context['problem_visibility'] = self.problem_visibility
         context['visibilities'] = {
@@ -416,11 +394,6 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
             2: 'Private',
         }
 
-        context['category'] = self.category
-        context['categories'] = ProblemGroup.objects.all()
-        if self.show_types:
-            context['selected_types'] = self.selected_types
-            context['problem_types'] = ProblemType.objects.all()
         context['has_fts'] = settings.ENABLE_FTS
         context['search_query'] = self.search_query
         context['completed_problem_ids'] = self.get_completed_problems()
@@ -463,26 +436,12 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
 
     def setup_problem_list(self, request):
         self.hide_solved = self.GET_with_session(request, 'hide_solved')
-        self.show_types = self.GET_with_session(request, 'show_types')
         self.full_text = self.GET_with_session(request, 'full_text')
 
         self.search_query = None
-        self.category = None
         self.problem_visibility = None
-        self.selected_types = []
 
-        # This actually copies into the instance dictionary...
-        self.all_sorts = set(self.all_sorts)
-        if not self.show_types:
-            self.all_sorts.discard('type')
-
-        self.category = safe_int_or_none(request.GET.get('category'))
         self.problem_visibility = safe_int_or_none(request.GET.get('problem_visibility'))
-        if 'type' in request.GET:
-            try:
-                self.selected_types = list(map(int, request.GET.getlist('type')))
-            except ValueError:
-                pass
 
         self.point_start = safe_float_or_none(request.GET.get('point_start'))
         self.point_end = safe_float_or_none(request.GET.get('point_end'))
@@ -496,7 +455,7 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
             return generic_message(request, 'FTS syntax error', e.args[1], status=400)
 
     def post(self, request, *args, **kwargs):
-        to_update = ('hide_solved', 'show_types', 'full_text')
+        to_update = ('hide_solved', 'full_text')
         for key in to_update:
             if key in request.GET:
                 val = request.GET.get(key) == '1'
@@ -513,20 +472,6 @@ class LanguageTemplateAjax(View):
         except ValueError:
             raise Http404()
         return HttpResponse(language.template, content_type='text/plain')
-
-
-class RandomProblem(ProblemList):
-    def get(self, request, *args, **kwargs):
-        self.setup_problem_list(request)
-        if self.in_contest:
-            raise Http404()
-
-        queryset = self.get_normal_queryset()
-        count = queryset.count()
-        if not count:
-            return HttpResponseRedirect('%s%s%s' % (reverse('problem_list'), request.META['QUERY_STRING'] and '?',
-                                                    request.META['QUERY_STRING']))
-        return HttpResponseRedirect(queryset[randrange(count)].get_absolute_url())
 
 
 user_logger = logging.getLogger('judge.user')
@@ -614,7 +559,7 @@ class ProblemSubmit(LoginRequiredMixin, ProblemMixin, TitleMixin, SingleObjectFo
         return reverse('submission_status', args=(self.new_submission.id,))
 
     def form_valid(self, form):
-        limit = 1 if self.request.profile.is_external_user else settings.DMOJ_SUBMISSION_LIMIT
+        limit = settings.DMOJ_SUBMISSION_LIMIT
 
         if (
             not self.request.user.has_perm('judge.spam_submission') and

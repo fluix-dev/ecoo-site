@@ -11,17 +11,17 @@ from django.utils.translation import ugettext_lazy as _
 from django.views.generic import RedirectView
 from martor.views import markdown_search_user
 
-from judge.feed import AtomBlogFeed, AtomCommentFeed, AtomProblemFeed, BlogFeed, CommentFeed, ProblemFeed
-from judge.sitemap import BlogPostSitemap, ContestSitemap, HomePageSitemap, OrganizationSitemap, ProblemSitemap, \
+from judge.feed import AtomBlogFeed, AtomProblemFeed, BlogFeed, ProblemFeed
+from judge.sitemap import BlogPostSitemap, ContestSitemap, HomePageSitemap, ProblemSitemap, \
     SolutionSitemap, UrlSitemap, UserSitemap
-from judge.views import TitledTemplateView, api, blog, comment, contests, language, license, mailgun, organization, \
+from judge.views import TitledTemplateView, blog, contests, language, \
     preview, problem, problem_manage, ranked_submission, register, stats, status, submission, tasks, ticket, \
-    two_factor, user, widgets
+    user, widgets
 from judge.views.problem_data import ProblemDataView, ProblemSubmissionDiff, \
     problem_data_file, problem_init_view
 from judge.views.register import ActivationView, RegistrationView
-from judge.views.select2 import AssigneeSelect2View, CommentSelect2View, ContestSelect2View, \
-    ContestUserSearchSelect2View, OrganizationSelect2View, ProblemSelect2View, TicketUserSelect2View, \
+from judge.views.select2 import AssigneeSelect2View, ContestSelect2View, \
+    ContestUserSearchSelect2View, ProblemSelect2View, TicketUserSelect2View, \
     UserSearchSelect2View, UserSelect2View
 from judge.views.widgets import martor_image_uploader
 
@@ -71,18 +71,6 @@ register_patterns = [
     url(r'^password/reset/done/$', auth_views.PasswordResetDoneView.as_view(
         template_name='registration/password_reset_done.html',
     ), name='password_reset_done'),
-    url(r'^social/error/$', register.social_auth_error, name='social_auth_error'),
-
-    url(r'^2fa/$', two_factor.TwoFactorLoginView.as_view(), name='login_2fa'),
-    url(r'^2fa/enable/$', two_factor.TOTPEnableView.as_view(), name='enable_2fa'),
-    url(r'^2fa/disable/$', two_factor.TOTPDisableView.as_view(), name='disable_2fa'),
-    url(r'^2fa/webauthn/attest/$', two_factor.WebAuthnAttestationView.as_view(), name='webauthn_attest'),
-    url(r'^2fa/webauthn/assert/$', two_factor.WebAuthnAttestView.as_view(), name='webauthn_assert'),
-    url(r'^2fa/webauthn/delete/(?P<pk>\d+)$', two_factor.WebAuthnDeleteView.as_view(), name='webauthn_delete'),
-    url(r'^2fa/scratchcode/generate/$', user.generate_scratch_codes, name='generate_scratch_codes'),
-
-    url(r'api/token/generate/$', user.generate_api_token, name='generate_api_token'),
-    url(r'api/token/remove/$', user.remove_api_token, name='remove_api_token'),
 ]
 
 
@@ -105,10 +93,8 @@ urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^i18n/', include('django.conf.urls.i18n')),
     url(r'^accounts/', include(register_patterns)),
-    url(r'^', include('social_django.urls')),
 
     url(r'^problems/$', problem.ProblemList.as_view(), name='problem_list'),
-    url(r'^problems/random/$', problem.RandomProblem.as_view(), name='problem_random'),
 
     url(r'^problem/(?P<problem>[^/]+)', include([
         url(r'^$', problem.ProblemDetail.as_view(), name='problem_detail'),
@@ -168,14 +154,8 @@ urlpatterns = [
 
     url(r'^user$', user.UserDashboard.as_view(), name='user_dashboard'),
     url(r'^edit/profile/$', user.edit_profile, name='user_edit_profile'),
-    url(r'^data/prepare/$', user.UserPrepareData.as_view(), name='user_prepare_data'),
-    url(r'^data/download/$', user.UserDownloadData.as_view(), name='user_download_data'),
     url(r'^user/(?P<user>[\w-]+)', include([
         url(r'^$', user.UserAboutPage.as_view(), name='user_page'),
-        url(r'^/solved', include([
-            url(r'^$', user.UserProblemsPage.as_view(), name='user_problems'),
-            url(r'/ajax$', user.UserPerformancePointsAjax.as_view(), name='user_pp_ajax'),
-        ])),
         url(r'^/submissions/', paged_list_view(submission.AllUserSubmissions, 'all_user_submissions_old')),
         url(r'^/submissions/', lambda _, user:
             HttpResponsePermanentRedirect(reverse('all_user_submissions', args=[user]))),
@@ -183,23 +163,7 @@ urlpatterns = [
         url(r'^/$', lambda _, user: HttpResponsePermanentRedirect(reverse('user_page', args=[user]))),
     ])),
 
-    url(r'^comments/upvote/$', comment.upvote_comment, name='comment_upvote'),
-    url(r'^comments/downvote/$', comment.downvote_comment, name='comment_downvote'),
-    url(r'^comments/hide/$', comment.comment_hide, name='comment_hide'),
-    url(r'^comments/(?P<id>\d+)/', include([
-        url(r'^edit$', comment.CommentEdit.as_view(), name='comment_edit'),
-        url(r'^history/ajax$', comment.CommentRevisionAjax.as_view(), name='comment_revision_ajax'),
-        url(r'^edit/ajax$', comment.CommentEditAjax.as_view(), name='comment_edit_ajax'),
-        url(r'^votes/ajax$', comment.CommentVotesAjax.as_view(), name='comment_votes_ajax'),
-        url(r'^render$', comment.CommentContent.as_view(), name='comment_content'),
-    ])),
-
     url(r'^contests/$', contests.ContestList.as_view(), name='contest_list'),
-    url(r'^contests/(?P<year>\d+)/(?P<month>\d+)/$', contests.ContestCalendar.as_view(), name='contest_calendar'),
-    url(r'^contests/tag/(?P<name>[a-z-]+)', include([
-        url(r'^$', contests.ContestTagDetail.as_view(), name='contest_tag'),
-        url(r'^/ajax$', contests.ContestTagDetailAjax.as_view(), name='contest_tag_ajax'),
-    ])),
 
     url(r'^contest/(?P<contest>\w+)', include([
         url(r'^$', contests.ContestDetail.as_view(), name='contest_view'),
@@ -208,7 +172,6 @@ urlpatterns = [
         url(r'^/clone$', contests.ContestClone.as_view(), name='contest_clone'),
         url(r'^/ranking/$', contests.ContestRanking.as_view(), name='contest_ranking'),
         url(r'^/ranking/ajax$', contests.contest_ranking_ajax, name='contest_ranking_ajax'),
-        url(r'^/register$', contests.ContestRegister.as_view(), name='contest_register'),
         url(r'^/join$', contests.ContestJoin.as_view(), name='contest_join'),
         url(r'^/leave$', contests.ContestLeave.as_view(), name='contest_leave'),
         url(r'^/stats$', contests.ContestStats.as_view(), name='contest_stats'),
@@ -230,65 +193,12 @@ urlpatterns = [
         url(r'^/$', lambda _, contest: HttpResponsePermanentRedirect(reverse('contest_view', args=[contest]))),
     ])),
 
-    url(r'^organizations/$', organization.OrganizationList.as_view(), name='organization_list'),
-    url(r'^organization/(?P<pk>\d+)-(?P<slug>[\w-]*)', include([
-        url(r'^$', organization.OrganizationHome.as_view(), name='organization_home'),
-        url(r'^/users$', organization.OrganizationUsers.as_view(), name='organization_users'),
-        url(r'^/join$', organization.JoinOrganization.as_view(), name='join_organization'),
-        url(r'^/leave$', organization.LeaveOrganization.as_view(), name='leave_organization'),
-        url(r'^/edit$', organization.EditOrganization.as_view(), name='edit_organization'),
-        url(r'^/kick$', organization.KickUserWidgetView.as_view(), name='organization_user_kick'),
-
-        url(r'^/request$', organization.RequestJoinOrganization.as_view(), name='request_organization'),
-        url(r'^/request/(?P<rpk>\d+)$', organization.OrganizationRequestDetail.as_view(),
-            name='request_organization_detail'),
-        url(r'^/requests/', include([
-            url(r'^pending$', organization.OrganizationRequestView.as_view(), name='organization_requests_pending'),
-            url(r'^log$', organization.OrganizationRequestLog.as_view(), name='organization_requests_log'),
-            url(r'^approved$', organization.OrganizationRequestLog.as_view(states=('A',), tab='approved'),
-                name='organization_requests_approved'),
-            url(r'^rejected$', organization.OrganizationRequestLog.as_view(states=('R',), tab='rejected'),
-                name='organization_requests_rejected'),
-        ])),
-
-        url(r'^/$', lambda _, pk, slug: HttpResponsePermanentRedirect(reverse('organization_home', args=[pk, slug]))),
-    ])),
-
     url(r'^runtimes/$', language.LanguageList.as_view(), name='runtime_list'),
     url(r'^runtimes/matrix/$', status.version_matrix, name='version_matrix'),
     url(r'^status/$', status.status_all, name='status_all'),
 
-    url(r'^api/', include([
-        url(r'^contest/list$', api.api_v1_contest_list),
-        url(r'^contest/info/(\w+)$', api.api_v1_contest_detail),
-        url(r'^problem/list$', api.api_v1_problem_list),
-        url(r'^problem/info/(\w+)$', api.api_v1_problem_info),
-        url(r'^user/list$', api.api_v1_user_list),
-        url(r'^user/info/([\w-]+)$', api.api_v1_user_info),
-        url(r'^user/submissions/([\w-]+)$', api.api_v1_user_submissions),
-        url(r'^user/ratings/(\d+)$', api.api_v1_user_ratings),
-        url(r'^v2/', include([
-            url(r'^contests$', api.api_v2.APIContestList.as_view()),
-            url(r'^contest/(?P<contest>\w+)$', api.api_v2.APIContestDetail.as_view()),
-            url(r'^problems$', api.api_v2.APIProblemList.as_view()),
-            url(r'^problem/(?P<problem>\w+)$', api.api_v2.APIProblemDetail.as_view()),
-            url(r'^users$', api.api_v2.APIUserList.as_view()),
-            url(r'^user/(?P<user>[\w-]+)$', api.api_v2.APIUserDetail.as_view()),
-            url(r'^submissions$', api.api_v2.APISubmissionList.as_view()),
-            url(r'^submission/(?P<submission>\d+)$', api.api_v2.APISubmissionDetail.as_view()),
-            url(r'^organizations$', api.api_v2.APIOrganizationList.as_view()),
-            url(r'^participations$', api.api_v2.APIContestParticipationList.as_view()),
-            url(r'^languages$', api.api_v2.APILanguageList.as_view()),
-            url(r'^judges$', api.api_v2.APIJudgeList.as_view()),
-        ])),
-    ])),
-
     url(r'^blog/', paged_list_view(blog.PostList, 'blog_post_list')),
     url(r'^post/(?P<id>\d+)-(?P<slug>.*)$', blog.PostView.as_view(), name='blog_post'),
-
-    url(r'^license/(?P<key>[-\w.]+)$', license.LicenseDetail.as_view(), name='license'),
-
-    url(r'^mailgun/mail_activate/$', mailgun.MailgunActivationView.as_view(), name='mailgun_activate'),
 
     url(r'^widgets/', include([
         url(r'^rejudge$', widgets.rejudge_submission, name='submission_rejudge'),
@@ -312,12 +222,9 @@ urlpatterns = [
             url(r'^problem$', preview.ProblemMarkdownPreviewView.as_view(), name='problem_preview'),
             url(r'^blog$', preview.BlogMarkdownPreviewView.as_view(), name='blog_preview'),
             url(r'^contest$', preview.ContestMarkdownPreviewView.as_view(), name='contest_preview'),
-            url(r'^comment$', preview.CommentMarkdownPreviewView.as_view(), name='comment_preview'),
             url(r'^flatpage$', preview.FlatPageMarkdownPreviewView.as_view(), name='flatpage_preview'),
             url(r'^profile$', preview.ProfileMarkdownPreviewView.as_view(), name='profile_preview'),
-            url(r'^organization$', preview.OrganizationMarkdownPreviewView.as_view(), name='organization_preview'),
             url(r'^solution$', preview.SolutionMarkdownPreviewView.as_view(), name='solution_preview'),
-            url(r'^license$', preview.LicenseMarkdownPreviewView.as_view(), name='license_preview'),
             url(r'^ticket$', preview.TicketMarkdownPreviewView.as_view(), name='ticket_preview'),
         ])),
 
@@ -330,8 +237,6 @@ urlpatterns = [
     url(r'^feed/', include([
         url(r'^problems/rss/$', ProblemFeed(), name='problem_rss'),
         url(r'^problems/atom/$', AtomProblemFeed(), name='problem_atom'),
-        url(r'^comment/rss/$', CommentFeed(), name='comment_rss'),
-        url(r'^comment/atom/$', AtomCommentFeed(), name='comment_atom'),
         url(r'^blog/rss/$', BlogFeed(), name='blog_rss'),
         url(r'^blog/atom/$', AtomBlogFeed(), name='blog_atom'),
     ])),
@@ -364,7 +269,6 @@ urlpatterns = [
         'user': UserSitemap,
         'home': HomePageSitemap,
         'contest': ContestSitemap,
-        'organization': OrganizationSitemap,
         'blog': BlogPostSitemap,
         'solutions': SolutionSitemap,
         'pages': UrlSitemap([
@@ -374,10 +278,8 @@ urlpatterns = [
 
     url(r'^judge-select2/', include([
         url(r'^profile/$', UserSelect2View.as_view(), name='profile_select2'),
-        url(r'^organization/$', OrganizationSelect2View.as_view(), name='organization_select2'),
         url(r'^problem/$', ProblemSelect2View.as_view(), name='problem_select2'),
         url(r'^contest/$', ContestSelect2View.as_view(), name='contest_select2'),
-        url(r'^comment/$', CommentSelect2View.as_view(), name='comment_select2'),
     ])),
 
     url(r'^tasks/', include([
@@ -408,7 +310,5 @@ handler404 = 'judge.views.error.error404'
 handler403 = 'judge.views.error.error403'
 handler500 = 'judge.views.error.error500'
 
-if 'newsletter' in settings.INSTALLED_APPS:
-    urlpatterns.append(url(r'^newsletter/', include('newsletter.urls')))
 if 'impersonate' in settings.INSTALLED_APPS:
     urlpatterns.append(url(r'^impersonate/', include('impersonate.urls')))

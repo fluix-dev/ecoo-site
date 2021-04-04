@@ -5,7 +5,7 @@ from django.utils.encoding import smart_text
 from django.views.generic.list import BaseListView
 
 from judge.jinja2.gravatar import gravatar
-from judge.models import Comment, Contest, Organization, Problem, Profile
+from judge.models import Contest, Problem, Profile
 
 
 def _get_user_queryset(term):
@@ -47,11 +47,6 @@ class UserSelect2View(Select2View):
         return obj.username
 
 
-class OrganizationSelect2View(Select2View):
-    def get_queryset(self):
-        return Organization.objects.filter(name__icontains=self.term)
-
-
 class ProblemSelect2View(Select2View):
     def get_queryset(self):
         return Problem.get_visible_problems(self.request.user) \
@@ -62,11 +57,6 @@ class ContestSelect2View(Select2View):
     def get_queryset(self):
         return Contest.get_visible_contests(self.request.user) \
                       .filter(Q(key__icontains=self.term) | Q(name__icontains=self.term))
-
-
-class CommentSelect2View(Select2View):
-    def get_queryset(self):
-        return Comment.objects.filter(page__icontains=self.term)
 
 
 class UserSearchSelect2View(BaseListView):

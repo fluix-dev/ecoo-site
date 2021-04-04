@@ -72,16 +72,9 @@
                         $('#go').click();
                 });
 
-                $('#random').click(function (e) {
-                    var action = $form.attr('action');
-                    $form.attr('action', '{{ url('problem_random') }}').attr('target', '_blank').submit();
-                    $form.attr('action', action).attr('target', '');
-                    e.preventDefault();
-                });
-
                 $('#go').click(clean_submit);
 
-                $('input#full_text, input#hide_solved, input#show_types').click(function () {
+                $('input#full_text, input#hide_solved').click(function () {
                     prep_form();
                     ($('<form>').attr('action', window.location.pathname + '?' + $form.serialize())
                         .append($('<input>').attr('type', 'hidden').attr('name', 'csrfmiddlewaretoken')
@@ -207,9 +200,6 @@
                         {% endif %}
                         <th class="problem">{{ _('Problem') }}</th>
                         <th class="category">{{ _('Category') }}</th>
-                        {% if show_types %}
-                            <th>{{ _('Types') }}</th>
-                        {% endif %}
                         <th class="points">{{ _('Points') }}</th>
                         <th class="users">{{ _('Users') }}</th>
                     {% else %}
@@ -222,19 +212,8 @@
                         <th class="problem">
                             <a href="{{ sort_links.name }}">{{ _('Problem') }}{{ sort_order.name }}</a>
                         </th>
-                        <th class="category">
-                            <a href="{{ sort_links.group }}">{{ _('Category') }}{{ sort_order.group }}</a>
-                        </th>
-                        {% if show_types %}
-                            <th>
-                                <a href="{{ sort_links.type }}">{{ _('Types') }}{{ sort_order.type }}</a>
-                            </th>
-                        {% endif %}
                         <th class="points">
                             <a href="{{ sort_links.points }}">{{ _('Points') }}{{ sort_order.points }}</a>
-                        </th>
-                        <th class="ac-rate">
-                            <a href="{{ sort_links.ac_rate }}">{{ _('AC %%') }}{{ sort_order.ac_rate }}</a>
                         </th>
                         <th class="users">
                             <a href="{{ sort_links.user_count }}">{{ _('Users') }}{{ sort_order.user_count }}</a>
@@ -279,7 +258,6 @@
                         <td class="problem">
                             <a href="{{ url('problem_detail', problem.code) }}">{{ problem.i18n_name or problem.name }}</a>
                         </td>
-                        <td class="category">{{ problem.group.full_name }}</td>
                         {% if show_types %}
                             <td class="types">
                                 {% for type in problem.types_list %}

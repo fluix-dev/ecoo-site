@@ -14,7 +14,6 @@ from registration.forms import RegistrationForm
 
 from judge.models import Language, Profile, TIMEZONE
 from judge.utils.recaptcha import ReCaptchaField, ReCaptchaWidget
-from judge.utils.subscription import Subscription, newsletter_id
 from judge.widgets import Select2Widget
 
 valid_id = re.compile(r'^\w+$')
@@ -35,9 +34,6 @@ class CustomRegistrationForm(RegistrationForm):
                            widget=Select2Widget(attrs={'style': 'width:100%'}))
     language = ModelChoiceField(queryset=Language.objects.all(), label=_('Preferred language'), empty_label=None,
                                 widget=Select2Widget(attrs={'style': 'width:100%'}))
-
-    if newsletter_id is not None:
-        newsletter = forms.BooleanField(label=_('Subscribe to newsletter?'), initial=True, required=False)
 
     if ReCaptchaField is not None:
         captcha = ReCaptchaField(widget=ReCaptchaWidget())
@@ -82,11 +78,7 @@ class RegistrationView(OldRegistrationView):
         user.save()
         profile.timezone = cleaned_data['timezone']
         profile.language = cleaned_data['language']
-        profile.is_external_user = True
         profile.save()
-
-        if newsletter_id is not None and cleaned_data['newsletter']:
-            Subscription(user=user, newsletter_id=newsletter_id, subscribed=True).save()
         return user
 
     def get_initial(self, *args, **kwargs):
@@ -104,10 +96,3 @@ class ActivationView(OldActivationView):
         if 'title' not in kwargs:
             kwargs['title'] = self.title
         return super(ActivationView, self).get_context_data(**kwargs)
-
-
-def social_auth_error(request):
-    return render(request, 'generic-message.html', {
-        'title': gettext('Authentication failure'),
-        'message': request.GET.get('message'),
-    })

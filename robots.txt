@@ -3,7 +3,6 @@ Disallow: /500
 Disallow: /accounts
 Disallow: /admin
 Disallow: /api
-Disallow: /comments
 Disallow: /contest/*/clone
 Disallow: /contest/*/join
 Disallow: /contest/*/leave
@@ -19,13 +18,6 @@ Disallow: /data
 Disallow: /edit/profile/$
 Disallow: /feed
 Disallow: /judge-select2
-Disallow: /mailgun/mail_activate/$
-Disallow: /organization/*/edit
-Disallow: /organization/*/join
-Disallow: /organization/*/kick
-Disallow: /organization/*/leave
-Disallow: /organization/*/request
-Disallow: /organization/*/requests
 Disallow: /problem/*/clone
 Disallow: /problem/*/data
 Disallow: /problem/*/manage/submission

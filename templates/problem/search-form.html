@@ -41,33 +41,6 @@
                     </select>
                 </div>
             {% endif %}
-            <div class="filter-form-group">
-                <label for="category"><i>{{ _('Category') }}</i></label>
-                <select id="category" name="category">
-                    {% if category %}
-                        <option value="" selected="selected">{{ _('All') }}</option>
-                    {% else %}
-                        <option value="">{{ _('All') }}</option>{% endif %}
-                    <option disabled="disabled">---</option>
-                    {% for group in categories %}
-                        <option value="{{ group.id }}"{% if group.id == category %} selected{% endif %}>
-                            {{ group.full_name }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% if show_types %}
-                <div class="filter-form-group">
-                    <label for="type"><i>{{ _('Problem types') }}</i></label>
-                    <select id="types" name="type" multiple>
-                        {% for type in problem_types %}
-                            <option value="{{ type.id }}"{% if type.id in selected_types %} selected{% endif %}>
-                                {{ type.full_name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-            {% endif %}
             {% if point_values %}
                 <div class="form-label">{{ _('Point range') }}</div>
                 <div id="point-slider"></div>
@@ -76,7 +49,6 @@
             <input id="point-end" type="hidden" name="point_end" {% if point_end and point_end != point_values.max %}value="{{ point_end }}"{% else %}disabled{% endif %}>
             <div class="form-submit-group">
                 <a id="go" class="button">{{ _('Go') }}</a>
-                <a id="random" class="button">{{ _('Random') }}</a>
             </div>
         </form>
     </div>

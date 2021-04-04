@@ -213,11 +213,6 @@
 
 {% block body %}
     <div id="common-content" class="content-description">
-        <div id="content-right" class="contests">
-            <div class="info-float">
-                {% include "contest/search-form.html" %}
-            </div>
-        </div>
         <div id="content-left" class="contests">
             {% if active_participations %}
                 <h4>{{ _('Active Contests') }}</h4>

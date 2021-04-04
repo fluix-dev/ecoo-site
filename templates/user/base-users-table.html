@@ -8,12 +8,6 @@
     <th class="header realname">{{ _('Real Name') }}</th>
     {% endif %}
     {% block before_point_head %}{% endblock %}
-
-    <th class="header points">
-        {% if sort_links %}<a href="{{ sort_links.performance_points }}">{% endif %}
-        {{ _('Points') }}
-        {%- if sort_links %}{{ sort_order.performance_points }}</a>{% endif %}
-    </th>
     {% block after_point_head %}{% endblock %}
 </tr>
 </thead>
@@ -31,11 +25,6 @@
             </td>
         {% endif %}
         {% block before_point scoped %}{% endblock %}
-        {% block point scoped %}
-            <td title="{{ user.performance_points|floatformat(2) }}" class="user-points">
-                {{ user.performance_points|floatformat(0) }}
-            </td>
-        {% endblock %}
         {% block after_point scoped %}{% endblock %}
     </tr>
 {% endfor %}

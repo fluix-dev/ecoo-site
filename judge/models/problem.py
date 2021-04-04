@@ -14,60 +14,13 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
 from judge.fulltext import SearchQuerySet
-from judge.models.profile import Organization, Profile
+from judge.models.profile import Profile
 from judge.models.runtime import Language
 from judge.user_translations import gettext as user_gettext
 from judge.utils.raw_sql import RawSQLColumn, unique_together_left_join
 
-__all__ = ['ProblemGroup', 'ProblemType', 'Problem', 'ProblemTranslation', 'ProblemClarification',
-           'License', 'Solution', 'TranslatedProblemQuerySet', 'TranslatedProblemForeignKeyQuerySet']
-
-
-class ProblemType(models.Model):
-    name = models.CharField(max_length=20, verbose_name=_('problem category ID'), unique=True)
-    full_name = models.CharField(max_length=100, verbose_name=_('problem category name'))
-
-    def __str__(self):
-        return self.full_name
-
-    class Meta:
-        ordering = ['full_name']
-        verbose_name = _('problem type')
-        verbose_name_plural = _('problem types')
-
-
-class ProblemGroup(models.Model):
-    name = models.CharField(max_length=20, verbose_name=_('problem group ID'), unique=True)
-    full_name = models.CharField(max_length=100, verbose_name=_('problem group name'))
-
-    def __str__(self):
-        return self.full_name
-
-    class Meta:
-        ordering = ['full_name']
-        verbose_name = _('problem group')
-        verbose_name_plural = _('problem groups')
-
-
-class License(models.Model):
-    key = models.CharField(max_length=20, unique=True, verbose_name=_('key'),
-                           validators=[RegexValidator(r'^[-\w.]+$', r'License key must be ^[-\w.]+$')])
-    link = models.CharField(max_length=256, verbose_name=_('link'))
-    name = models.CharField(max_length=256, verbose_name=_('full name'))
-    display = models.CharField(max_length=256, blank=True, verbose_name=_('short name'),
-                               help_text=_('Displayed on pages under this license'))
-    icon = models.CharField(max_length=256, blank=True, verbose_name=_('icon'), help_text=_('URL to the icon'))
-    text = models.TextField(verbose_name=_('license text'))
-
-    def __str__(self):
-        return self.name
-
-    def get_absolute_url(self):
-        return reverse('license', args=(self.key,))
-
-    class Meta:
-        verbose_name = _('license')
-        verbose_name_plural = _('licenses')
+__all__ = ['Problem', 'ProblemTranslation', 'ProblemClarification',
+           'Solution', 'TranslatedProblemQuerySet', 'TranslatedProblemForeignKeyQuerySet']
 
 
 class TranslatedProblemQuerySet(SearchQuerySet):
@@ -110,11 +63,6 @@ class Problem(models.Model):
     testers = models.ManyToManyField(Profile, verbose_name=_('testers'), blank=True, related_name='tested_problems',
                                      help_text=_(
                                          'These users will be able to view the private problem, but not edit it.'))
-    types = models.ManyToManyField(ProblemType, verbose_name=_('problem types'),
-                                   help_text=_('The type of problem, '
-                                               "as shown on the problem's page."))
-    group = models.ForeignKey(ProblemGroup, verbose_name=_('problem group'), on_delete=CASCADE,
-                              help_text=_('The group of problem, shown under Category in the problem list.'))
     time_limit = models.FloatField(verbose_name=_('time limit'),
                                    help_text=_('The time limit for this problem, in seconds. '
                                                'Fractional seconds (e.g. 1.5) are supported.'),
@@ -140,22 +88,14 @@ class Problem(models.Model):
                                 help_text=_("Doesn't have magic ability to auto-publish due to backward compatibility"))
     banned_users = models.ManyToManyField(Profile, verbose_name=_('personae non gratae'), blank=True,
                                           help_text=_('Bans the selected users from submitting to this problem.'))
-    license = models.ForeignKey(License, null=True, blank=True, on_delete=SET_NULL,
-                                help_text=_('The license under which this problem is published.'))
     og_image = models.CharField(verbose_name=_('OpenGraph image'), max_length=150, blank=True)
     summary = models.TextField(blank=True, verbose_name=_('problem summary'),
                                help_text=_('Plain-text, shown in meta description tag, e.g. for social media.'))
     user_count = models.IntegerField(verbose_name=_('number of users'), default=0,
                                      help_text=_('The number of users who solved the problem.'))
-    ac_rate = models.FloatField(verbose_name=_('solve rate'), default=0)
-    is_full_markup = models.BooleanField(verbose_name=_('allow full markdown access'), default=False)
 
     objects = TranslatedProblemQuerySet.as_manager()
     tickets = GenericRelation('Ticket')
-
-    organizations = models.ManyToManyField(Organization, blank=True, verbose_name=_('organizations'),
-                                           help_text=_('If private, only these organizations may see the problem.'))
-    is_organization_private = models.BooleanField(verbose_name=_('private to organizations'), default=False)
 
     def __init__(self, *args, **kwargs):
         super(Problem, self).__init__(*args, **kwargs)
@@ -178,9 +118,7 @@ class Problem(models.Model):
             return False
         if user.has_perm('judge.edit_all_problem') or user.has_perm('judge.edit_public_problem') and self.is_public:
             return True
-        return user.has_perm('judge.edit_own_problem') and \
-            (user.profile.id in self.editor_ids or
-                self.is_organization_private and self.organizations.filter(admins=user.profile).exists())
+        return user.has_perm('judge.edit_own_problem') and user.profile.id in self.editor_ids
 
     def is_accessible_by(self, user, skip_contest_problem_check=False):
         # If we don't want to check if the user is in a contest containing that problem.
@@ -194,18 +132,7 @@ class Problem(models.Model):
 
         # Problem is public.
         if self.is_public:
-            # Problem is not private to an organization.
-            if not self.is_organization_private:
-                return True
-
-            # If the user can see all organization private problems.
-            if user.has_perm('judge.see_organization_problem'):
-                return True
-
-            # If the user is in the organization.
-            if user.is_authenticated and \
-                    self.organizations.filter(id__in=user.profile.organizations.all()):
-                return True
+            return True
 
         if not user.is_authenticated:
             return False
@@ -239,24 +166,11 @@ class Problem(models.Model):
         #   - otherwise
         #       - not is_public problems
         #           - author or curator or tester
-        #           - is_organization_private and admin of organization
         #       - is_public problems
-        #           - not is_organization_private or in organization or `judge.see_organization_problem`
-        #           - author or curator or tester
         queryset = cls.objects.defer('description', 'summary')
 
         if not (user.has_perm('judge.see_private_problem') or user.has_perm('judge.edit_all_problem')):
             q = Q(is_public=True)
-            if not (user.has_perm('judge.see_organization_problem') or user.has_perm('judge.edit_public_problem')):
-                # Either not organization private or in the organization.
-                q &= (
-                    Q(is_organization_private=False) |
-                    Q(is_organization_private=True, organizations__in=user.profile.organizations.all())
-                )
-
-            if user.has_perm('judge.edit_own_problem'):
-                q |= Q(is_organization_private=True, organizations__in=user.profile.admin_of.all())
-
             # Authors, curators, and testers should always have access, so OR at the very end.
             q |= Q(authors=user.profile)
             q |= Q(curators=user.profile)
@@ -267,7 +181,7 @@ class Problem(models.Model):
 
     @classmethod
     def get_public_problems(cls):
-        return cls.objects.filter(is_public=True, is_organization_private=False).defer('description')
+        return cls.objects.filter(is_public=True).defer('description')
 
     @classmethod
     def get_editable_problems(cls, user):
@@ -277,7 +191,6 @@ class Problem(models.Model):
             return cls.objects.all()
 
         q = Q(authors=user.profile) | Q(curators=user.profile)
-        q |= Q(is_organization_private=True, organizations__in=user.profile.admin_of.all())
 
         if user.has_perm('judge.edit_public_problem'):
             q |= Q(is_public=True)
@@ -339,12 +252,6 @@ class Problem(models.Model):
     def update_stats(self):
         self.user_count = self.submission_set.filter(points__gte=self.points, result='AC',
                                                      user__is_unlisted=False).values('user').distinct().count()
-        submissions = self.submission_set.count()
-        if submissions:
-            self.ac_rate = 100.0 * self.submission_set.filter(points__gte=self.points, result='AC',
-                                                              user__is_unlisted=False).count() / submissions
-        else:
-            self.ac_rate = 0
         self.save()
 
     update_stats.alters_data = True
@@ -417,7 +324,6 @@ class Problem(models.Model):
             ('clone_problem', _('Clone problem')),
             ('change_public_visibility', _('Change is_public field')),
             ('change_manually_managed', _('Change is_manually_managed field')),
-            ('see_organization_problem', _('See organization-private problems')),
         )
         verbose_name = _('problem')
         verbose_name_plural = _('problems')

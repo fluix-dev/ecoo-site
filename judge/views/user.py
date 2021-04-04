@@ -29,17 +29,13 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, FormView, ListView, TemplateView, View
 from reversion import revisions
 
-from judge.forms import CustomAuthenticationForm, DownloadDataForm, ProfileForm, newsletter_id
-from judge.models import Comment, Profile, Rating, Submission, Ticket
-from judge.performance_points import get_pp_breakdown
-from judge.ratings import rating_class, rating_progress
-from judge.tasks import prepare_user_data
+from judge.forms import CustomAuthenticationForm, ProfileForm
+from judge.models import Profile, Rating, Submission, Ticket
 from judge.utils.cachedict import CacheDict
 from judge.utils.celery import task_status_by_id, task_status_url_by_id
 from judge.utils.problems import contest_completed_ids, user_completed_ids
 from judge.utils.pwned import PwnedPasswordsValidator
 from judge.utils.ranker import ranker
-from judge.utils.subscription import Subscription
 from judge.utils.unicode import utf8text
 from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, TitleMixin, add_file_response, generic_message
 from .contests import ContestRanking
@@ -105,19 +101,17 @@ class UserPage(TitleMixin, UserMixin, DetailView):
         context = super(UserPage, self).get_context_data(**kwargs)
 
         context['hide_solved'] = int(self.hide_solved)
-        context['authored'] = self.object.authored_problems.filter(is_public=True, is_organization_private=False) \
+        context['authored'] = self.object.authored_problems.filter(is_public=True) \
                                   .order_by('code')
         rating = self.object.ratings.order_by('-contest__end_time')[:1]
         context['rating'] = rating[0] if rating else None
 
-        context['rank'] = Profile.objects.filter(
-            is_external_user=False, is_unlisted=False, performance_points__gt=self.object.performance_points,
-        ).count() + 1
+        context['rank'] = Profile.objects.filter(is_unlisted=False).count() + 1
 
         if rating:
-            context['rating_rank'] = Profile.objects.filter(is_external_user=False, is_unlisted=False,
+            context['rating_rank'] = Profile.objects.filter(is_unlisted=False,
                                                             rating__gt=self.object.rating).count() + 1
-            context['rated_users'] = Profile.objects.filter(is_external_user=False, is_unlisted=False,
+            context['rated_users'] = Profile.objects.filter(is_unlisted=False,
                                                             rating__isnull=False).count()
         context.update(self.object.ratings.aggregate(min_rating=Min('rating'), max_rating=Max('rating'),
                                                      contests=Count('contest')))
@@ -173,9 +167,7 @@ class UserDashboard(UserPage):
                                                   .annotate(points=Max('points'), latest=Max('date'))
                                                   .order_by('-latest')
                                                   [:settings.DMOJ_BLOG_RECENTLY_ATTEMPTED_PROBLEMS_COUNT])
-        context['own_comments'] = Comment.most_recent(user, 10, queryset=Comment.objects.filter(author=profile))
         context['own_tickets'] = Ticket.tickets_list(user).filter(user=profile)[:10]
-        context['page_titles'] = CacheDict(lambda page: Comment.get_page_title(page))
 
         return context
 
@@ -228,160 +220,8 @@ class UserAboutPage(UserPage):
         return context
 
 
-class UserProblemsPage(UserPage):
-    template_name = 'user/user-problems.html'
-
-    def get_context_data(self, **kwargs):
-        context = super(UserProblemsPage, self).get_context_data(**kwargs)
-
-        result = Submission.objects.filter(user=self.object, points__gt=0, problem__is_public=True,
-                                           problem__is_organization_private=False) \
-            .exclude(problem__in=self.get_completed_problems() if self.hide_solved else []) \
-            .values('problem__id', 'problem__code', 'problem__name', 'problem__points', 'problem__group__full_name') \
-            .distinct().annotate(points=Max('points')).order_by('problem__group__full_name', 'problem__code')
-
-        def process_group(group, problems_iter):
-            problems = list(problems_iter)
-            points = sum(map(itemgetter('points'), problems))
-            return {'name': group, 'problems': problems, 'points': points}
-
-        context['best_submissions'] = [
-            process_group(group, problems) for group, problems in itertools.groupby(
-                remap_keys(result, {
-                    'problem__code': 'code', 'problem__name': 'name', 'problem__points': 'total',
-                    'problem__group__full_name': 'group',
-                }), itemgetter('group'))
-        ]
-        breakdown, has_more = get_pp_breakdown(self.object, start=0, end=10)
-        context['pp_breakdown'] = breakdown
-        context['pp_has_more'] = has_more
-
-        return context
-
-
-class UserPerformancePointsAjax(UserProblemsPage):
-    template_name = 'user/pp-table-body.html'
-
-    def get_context_data(self, **kwargs):
-        context = super(UserPerformancePointsAjax, self).get_context_data(**kwargs)
-        try:
-            start = int(self.request.GET.get('start', 0))
-            end = int(self.request.GET.get('end', settings.DMOJ_PP_ENTRIES))
-            if start < 0 or end < 0 or start > end:
-                raise ValueError
-        except ValueError:
-            start, end = 0, 100
-        breakdown, self.has_more = get_pp_breakdown(self.object, start=start, end=end)
-        context['pp_breakdown'] = breakdown
-        return context
-
-    def get(self, request, *args, **kwargs):
-        httpresp = super(UserPerformancePointsAjax, self).get(request, *args, **kwargs)
-        httpresp.render()
-
-        return JsonResponse({
-            'results': utf8text(httpresp.content),
-            'has_more': self.has_more,
-        })
-
-
-class UserDataMixin:
-    @cached_property
-    def data_path(self):
-        return os.path.join(settings.DMOJ_USER_DATA_CACHE, '%s.zip' % self.request.profile.id)
-
-    def dispatch(self, request, *args, **kwargs):
-        if not settings.DMOJ_USER_DATA_DOWNLOAD or self.request.profile.mute:
-            raise Http404()
-        return super().dispatch(request, *args, **kwargs)
-
-
-class UserPrepareData(LoginRequiredMixin, UserDataMixin, TitleMixin, FormView):
-    template_name = 'user/prepare-data.html'
-    form_class = DownloadDataForm
-
-    @cached_property
-    def _now(self):
-        return timezone.now()
-
-    @cached_property
-    def can_prepare_data(self):
-        return (
-            self.request.profile.data_last_downloaded is None or
-            self.request.profile.data_last_downloaded + settings.DMOJ_USER_DATA_DOWNLOAD_RATELIMIT < self._now or
-            not os.path.exists(self.data_path)
-        )
-
-    @cached_property
-    def data_cache_key(self):
-        return 'celery_status_id:user_data_download_%s' % self.request.profile.id
-
-    @cached_property
-    def in_progress_url(self):
-        status_id = cache.get(self.data_cache_key)
-        status = task_status_by_id(status_id).status if status_id else None
-        return (
-            self.build_task_url(status_id)
-            if status in ('PENDING', 'PROGRESS', 'STARTED')
-            else None
-        )
-
-    def build_task_url(self, status_id):
-        return task_status_url_by_id(
-            status_id, message=_('Preparing your data...'), redirect=reverse('user_prepare_data'),
-        )
-
-    def get_title(self):
-        return _('Download your data')
-
-    def form_valid(self, form):
-        self.request.profile.data_last_downloaded = self._now
-        self.request.profile.save()
-        status = prepare_user_data.delay(self.request.profile.id, json.dumps(form.cleaned_data))
-        cache.set(self.data_cache_key, status.id)
-        return HttpResponseRedirect(self.build_task_url(status.id))
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['can_prepare_data'] = self.can_prepare_data
-        context['can_download_data'] = os.path.exists(self.data_path)
-        context['in_progress_url'] = self.in_progress_url
-        context['ratelimit'] = settings.DMOJ_USER_DATA_DOWNLOAD_RATELIMIT
-
-        if not self.can_prepare_data:
-            context['time_until_can_prepare'] = (
-                settings.DMOJ_USER_DATA_DOWNLOAD_RATELIMIT - (self._now - self.request.profile.data_last_downloaded)
-            )
-        return context
-
-    def post(self, request, *args, **kwargs):
-        if not self.can_prepare_data or self.in_progress_url is not None:
-            raise PermissionDenied()
-        return super().post(request, *args, **kwargs)
-
-
-class UserDownloadData(LoginRequiredMixin, UserDataMixin, View):
-    def get(self, request, *args, **kwargs):
-        if not os.path.exists(self.data_path):
-            raise Http404()
-
-        response = HttpResponse()
-
-        if hasattr(settings, 'DMOJ_USER_DATA_INTERNAL'):
-            url_path = '%s/%s.zip' % (settings.DMOJ_USER_DATA_INTERNAL, self.request.profile.id)
-        else:
-            url_path = None
-        add_file_response(request, response, url_path, self.data_path)
-
-        response['Content-Type'] = 'application/zip'
-        response['Content-Disposition'] = 'attachment; filename=%s-data.zip' % self.request.user.username
-        return response
-
-
 @login_required
 def edit_profile(request):
-    if request.profile.mute:
-        raise Http404()
     if request.method == 'POST':
         form = ProfileForm(request.POST, instance=request.profile, user=request.user)
         if form.is_valid():
@@ -390,39 +230,13 @@ def edit_profile(request):
                 revisions.set_user(request.user)
                 revisions.set_comment(_('Updated on site'))
 
-            if newsletter_id is not None:
-                try:
-                    subscription = Subscription.objects.get(user=request.user, newsletter_id=newsletter_id)
-                except Subscription.DoesNotExist:
-                    if form.cleaned_data['newsletter']:
-                        Subscription(user=request.user, newsletter_id=newsletter_id, subscribed=True).save()
-                else:
-                    if subscription.subscribed != form.cleaned_data['newsletter']:
-                        subscription.update(('unsubscribe', 'subscribe')[form.cleaned_data['newsletter']])
-
-            perm = Permission.objects.get(codename='test_site', content_type=ContentType.objects.get_for_model(Profile))
-            if form.cleaned_data['test_site']:
-                request.user.user_permissions.add(perm)
-            else:
-                request.user.user_permissions.remove(perm)
-
             return HttpResponseRedirect(request.path)
     else:
-        form = ProfileForm(instance=request.profile, user=request.user)
-        if newsletter_id is not None:
-            try:
-                subscription = Subscription.objects.get(user=request.user, newsletter_id=newsletter_id)
-            except Subscription.DoesNotExist:
-                form.fields['newsletter'].initial = False
-            else:
-                form.fields['newsletter'].initial = subscription.subscribed
-        form.fields['test_site'].initial = request.user.has_perm('judge.test_site')
+        form = ProfileForm(instance=request.profile)
 
     tzmap = settings.TIMEZONE_MAP
     return render(request, 'user/edit-profile.html', {
-        'require_staff_2fa': settings.DMOJ_REQUIRE_STAFF_2FA,
         'form': form, 'title': _('Edit profile'), 'profile': request.profile,
-        'can_download_data': bool(settings.DMOJ_USER_DATA_DOWNLOAD),
         'has_math_config': bool(settings.MATHOID_URL),
         'ignore_user_script': True,
         'TIMEZONE_MAP': tzmap or 'http://momentjs.com/static/img/world.png',
@@ -430,64 +244,23 @@ def edit_profile(request):
     })
 
 
-@require_POST
-@login_required
-def generate_api_token(request):
-    profile = request.profile
-    with transaction.atomic(), revisions.create_revision():
-        revisions.set_user(request.user)
-        revisions.set_comment(_('Generated API token for user'))
-        return JsonResponse({'data': {'token': profile.generate_api_token()}})
-
-
-@require_POST
-@login_required
-def remove_api_token(request):
-    profile = request.profile
-    with transaction.atomic(), revisions.create_revision():
-        profile.api_token = None
-        profile.save()
-        revisions.set_user(request.user)
-        revisions.set_comment(_('Removed API token for user'))
-    return JsonResponse({})
-
-
-@require_POST
-@login_required
-def generate_scratch_codes(request):
-    profile = request.profile
-    with transaction.atomic(), revisions.create_revision():
-        revisions.set_user(request.user)
-        revisions.set_comment(_('Generated scratch codes for user'))
-    return JsonResponse({'data': {'codes': profile.generate_scratch_codes()}})
-
-
-class UserList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ListView):
+class UserList(DiggPaginatorMixin, TitleMixin, ListView):
     model = Profile
     title = gettext_lazy('Leaderboard')
     context_object_name = 'users'
     template_name = 'user/list.html'
     paginate_by = 100
-    all_sorts = frozenset(('points', 'problem_count', 'rating', 'performance_points'))
-    default_desc = all_sorts
-    default_sort = '-performance_points'
 
     def get_queryset(self):
-        return (Profile.objects.filter(is_external_user=False, is_unlisted=False)
-                .order_by(self.order).select_related('user')
-                .only('display_rank', 'user__username', 'user__first_name', 'user__last_name', 'points',
-                      'rating', 'performance_points', 'problem_count'))
+        return (Profile.objects.filter(is_unlisted=False)
+                .order_by('id').select_related('user')
+                .only('display_rank', 'user__username', 'user__first_name', 'user__last_name'))
 
     def get_context_data(self, **kwargs):
         context = super(UserList, self).get_context_data(**kwargs)
-        context['users'] = ranker(
-            context['users'],
-            key=attrgetter('performance_points', 'problem_count'),
-            rank=self.paginate_by * (context['page_obj'].number - 1),
-        )
+        context['rank_header'] = _('Id')
+        context['users'] = list(map(lambda user: (user.id, user), context['users']))
         context['first_page_href'] = '.'
-        context.update(self.get_sort_context())
-        context.update(self.get_sort_paginate_context())
         return context
 
 
@@ -516,12 +289,8 @@ def user_ranking_redirect(request):
     except KeyError:
         raise Http404()
     user = get_object_or_404(Profile, user__username=username)
-    rank = Profile.objects.filter(
-        is_external_user=False, is_unlisted=False, performance_points__gt=user.performance_points,
-    ).count()
-    rank += Profile.objects.filter(
-        is_external_user=False, is_unlisted=False, performance_points__exact=user.performance_points, id__lt=user.id,
-    ).count()
+    rank = Profile.objects.filter(is_unlisted=False).count()
+    rank += Profile.objects.filter(is_unlisted=False, id__lt=user.id).count()
     page = rank // UserList.paginate_by
     return HttpResponseRedirect('%s%s#!%s' % (reverse('user_list'), '?page=%d' % (page + 1) if page else '', username))
 

@@ -38,10 +38,6 @@ class ProfileMarkdownPreviewView(MarkdownPreviewView):
     template_name = 'user/preview.html'
 
 
-class OrganizationMarkdownPreviewView(MarkdownPreviewView):
-    template_name = 'organization/preview.html'
-
-
 class SolutionMarkdownPreviewView(MarkdownPreviewView):
     template_name = 'solution-preview.html'
 

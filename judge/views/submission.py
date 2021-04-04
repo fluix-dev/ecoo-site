@@ -30,7 +30,7 @@ from judge.utils.views import DiggPaginatorMixin, TitleMixin
 
 def submission_related(queryset):
     return queryset.select_related('user__user', 'problem', 'language') \
-        .only('id', 'user__user__username', 'user__display_rank', 'user__rating', 'problem__name',
+        .only('id', 'user__user__username', 'user__display_rank', 'problem__name',
               'problem__code', 'problem__is_public', 'language__short_name',
               'language__key', 'date', 'time', 'memory', 'points', 'result', 'status', 'case_points',
               'case_total', 'current_testcase', 'contest_object')
@@ -247,8 +247,7 @@ class SubmissionsListBase(DiggPaginatorMixin, TitleMixin, ListView):
                 # Show submissions for any contest you can edit, finished, or visible scoreboard
                 contest_queryset = Contest.objects.filter(Q(organizers=self.request.profile) |
                                                           Q(hide_scoreboard=False) |
-                                                          Q(end_time__lte=timezone.now(),
-                                                            permanently_hide_scoreboard=False)).distinct()
+                                                          Q(end_time__lte=timezone.now())).distinct()
                 queryset = queryset.filter(Q(user=self.request.profile) |
                                            Q(contest_object__in=contest_queryset) |
                                            Q(contest_object__isnull=True))

@@ -14,7 +14,6 @@ from reversion.admin import VersionAdmin
 
 from django_ace import AceWidget
 from judge.models import Contest, ContestProblem, ContestSubmission, Profile, Rating
-from judge.ratings import rate_contest
 from judge.utils.views import NoBatchDeleteMixin
 from judge.widgets import AdminHeavySelect2MultipleWidget, AdminHeavySelect2Widget, AdminMartorWidget, \
     AdminSelect2MultipleWidget, AdminSelect2Widget
@@ -98,32 +97,27 @@ class ContestForm(ModelForm):
             'organizers': AdminHeavySelect2MultipleWidget(data_view='profile_select2'),
             'private_contestants': AdminHeavySelect2MultipleWidget(data_view='profile_select2',
                                                                    attrs={'style': 'width: 100%'}),
-            'organizations': AdminHeavySelect2MultipleWidget(data_view='organization_select2'),
             'tags': AdminSelect2MultipleWidget,
             'banned_users': AdminHeavySelect2MultipleWidget(data_view='profile_select2',
                                                             attrs={'style': 'width: 100%'}),
             'view_contest_scoreboard': AdminHeavySelect2MultipleWidget(data_view='profile_select2',
                                                                        attrs={'style': 'width: 100%'}),
             'description': AdminMartorWidget(attrs={'data-markdownfy-url': reverse_lazy('contest_preview')}),
-            'registration_page': AdminMartorWidget(attrs={'data-markdownfy-url': reverse_lazy('contest_preview')}),
         }
 
 
 class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
     fieldsets = (
         (None, {'fields': ('key', 'name', 'organizers')}),
-        (_('Settings'), {'fields': ('is_visible', 'is_external', 'is_virtualable', 'use_clarifications',
+        (_('Settings'), {'fields': ('is_visible', 'is_virtualable', 'use_clarifications',
                                     'hide_problem_tags', 'hide_scoreboard',
-                                    'partially_hide_scoreboard', 'permanently_hide_scoreboard', 'run_pretests_only',
+                                    'partially_hide_scoreboard', 'run_pretests_only',
                                     'is_locked', 'points_precision', 'access_code')}),
         (_('Scheduling'), {'fields': ('start_time', 'end_time', 'time_limit')}),
         (_('Details'), {'fields': ('description', 'og_image', 'logo_override_image', 'tags', 'summary')}),
         (_('Format'), {'fields': ('format_name', 'format_config', 'problem_label_script')}),
         (_('Rating'), {'fields': ('is_rated', 'rate_all', 'rating_floor', 'rating_ceiling', 'rate_exclude')}),
-        (_('Registration'), {'fields': ('require_registration', 'registration_start_time',
-                                        'registration_end_time', 'registration_page')}),
-        (_('Access'), {'fields': ('is_organization_private', 'is_private_viewable', 'organizations',
-                                  'is_private', 'private_contestants', 'view_contest_scoreboard')}),
+        (_('Access'), {'fields': ('view_contest_scoreboard',)}),
         (_('Justice'), {'fields': ('banned_users',)}),
     )
     list_display = ('key', 'name', 'is_visible', 'is_rated', 'is_locked', 'start_time', 'end_time', 'time_limit',
@@ -166,11 +160,8 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
             readonly += ['is_locked']
         if not request.user.has_perm('judge.contest_access_code'):
             readonly += ['access_code']
-        if not request.user.has_perm('judge.create_private_contest'):
-            readonly += ['is_private', 'private_contestants', 'is_organization_private',
-                         'organizations', 'is_private_viewable']
-            if not request.user.has_perm('judge.change_contest_visibility'):
-                readonly += ['is_visible']
+        if not request.user.has_perm('judge.change_contest_visibility'):
+            readonly += ['is_visible']
         if not request.user.has_perm('judge.contest_problem_label'):
             readonly += ['problem_label_script']
         return readonly
@@ -178,10 +169,7 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
     def save_model(self, request, obj, form, change):
         # `is_visible` will not appear in `cleaned_data` if user cannot edit it
         if form.cleaned_data.get('is_visible') and not request.user.has_perm('judge.change_contest_visibility'):
-            if not form.cleaned_data['is_private'] and not form.cleaned_data['is_organization_private']:
-                raise PermissionDenied
-            if not request.user.has_perm('judge.create_private_contest'):
-                raise PermissionDenied
+            raise PermissionDenied
 
         super().save_model(request, obj, form, change)
         # We need this flag because `save_related` deals with the inlines, but does not know if we have already rescored
@@ -212,7 +200,7 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
 
     def make_visible(self, request, queryset):
         if not request.user.has_perm('judge.change_contest_visibility'):
-            queryset = queryset.filter(Q(is_private=True) | Q(is_organization_private=True))
+            queryset = queryset.filter(Q(is_private=True))
         count = queryset.update(is_visible=True)
         self.message_user(request, ungettext('%d contest successfully marked as visible.',
                                              '%d contests successfully marked as visible.',
@@ -221,7 +209,7 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
 
     def make_hidden(self, request, queryset):
         if not request.user.has_perm('judge.change_contest_visibility'):
-            queryset = queryset.filter(Q(is_private=True) | Q(is_organization_private=True))
+            queryset = queryset.filter(Q(is_private=True))
         count = queryset.update(is_visible=True)
         self.message_user(request, ungettext('%d contest successfully marked as hidden.',
                                              '%d contests successfully marked as hidden.',
@@ -355,11 +343,10 @@ class ContestParticipationAdmin(admin.ModelAdmin):
 
 
 class ContestRegistrationAdmin(admin.ModelAdmin):
-    fields = ('contest', 'user', 'registration_time', 'data')
-    list_display = ('contest', 'username', 'registration_time')
+    fields = ('contest', 'user', 'data')
+    list_display = ('contest', 'username',)
     search_fields = ('contest__key', 'contest__name', 'user__user__username')
     form = ContestParticipationForm
-    date_hierarchy = 'registration_time'
 
     def username(self, obj):
         return obj.user.username

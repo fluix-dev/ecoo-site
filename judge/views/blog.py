@@ -4,10 +4,9 @@ from django.http import Http404
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import ugettext as _
-from django.views.generic import ListView
+from django.views.generic import DetailView, ListView
 
-from judge.comments import CommentedDetailView
-from judge.models import BlogPost, Comment, Contest, Language, Problem, ProblemClarification, Profile, Submission, \
+from judge.models import BlogPost, Contest, Language, Problem, ProblemClarification, Profile, Submission, \
     Ticket
 from judge.utils.cachedict import CacheDict
 from judge.utils.diggpaginator import DiggPaginator
@@ -29,12 +28,7 @@ class PostList(ListView):
     def get_queryset(self):
         queryset = BlogPost.objects.filter(visible=True, publish_on__lte=timezone.now()) \
                                    .order_by('-sticky', '-publish_on') \
-                                   .prefetch_related('authors__user', 'organizations')
-        if not self.request.user.has_perm('judge.edit_all_post'):
-            filter = Q(is_organization_private=False)
-            if self.request.user.is_authenticated:
-                filter |= Q(organizations__in=self.request.profile.organizations.all())
-            queryset = queryset.filter(filter)
+                                   .prefetch_related('authors__user')
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -42,7 +36,6 @@ class PostList(ListView):
         context['title'] = self.title or _('Page %d of Posts') % context['page_obj'].number
         context['first_page_href'] = reverse('home')
         context['page_prefix'] = reverse('blog_post_list')
-        context['comments'] = Comment.most_recent(self.request.user, 10)
         context['new_problems'] = Problem.get_public_problems() \
                                          .order_by('-date', 'code')[:settings.DMOJ_BLOG_NEW_PROBLEM_COUNT]
         context['page_titles'] = CacheDict(lambda page: Comment.get_page_title(page))
@@ -59,13 +52,6 @@ class PostList(ListView):
         context['problem_count'] = Problem.get_public_problems().count
         context['submission_count'] = lambda: Submission.objects.aggregate(max_id=Max('id'))['max_id'] or 0
         context['language_count'] = Language.objects.count
-
-        context['post_comment_counts'] = {
-            int(page[2:]): count for page, count in
-            Comment.objects
-                   .filter(page__in=['b:%d' % post.id for post in context['posts']], hidden=False)
-                   .values_list('page').annotate(count=Count('page')).order_by()
-        }
 
         now = timezone.now()
 
@@ -87,7 +73,7 @@ class PostList(ListView):
         return context
 
 
-class PostView(TitleMixin, CommentedDetailView):
+class PostView(TitleMixin, DetailView):
     model = BlogPost
     pk_url_kwarg = 'id'
     context_object_name = 'post'
@@ -95,9 +81,6 @@ class PostView(TitleMixin, CommentedDetailView):
 
     def get_title(self):
         return self.object.title
-
-    def get_comment_page(self):
-        return 'b:%s' % self.object.id
 
     def get_context_data(self, **kwargs):
         context = super(PostView, self).get_context_data(**kwargs)

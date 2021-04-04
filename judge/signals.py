@@ -9,8 +9,8 @@ from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from .caching import finished_submission
-from .models import BlogPost, Comment, Contest, ContestSubmission, EFFECTIVE_MATH_ENGINES, Judge, Language, License, \
-    MiscConfig, Organization, Problem, Profile, Submission
+from .models import BlogPost, Contest, ContestSubmission, EFFECTIVE_MATH_ENGINES, Judge, Language, \
+    MiscConfig, Problem, Profile, Submission
 
 
 def get_pdf_path(basename):
@@ -51,9 +51,7 @@ def profile_update(sender, instance, **kwargs):
         return
 
     cache.delete_many([make_template_fragment_key('user_about', (instance.id, engine))
-                       for engine in EFFECTIVE_MATH_ENGINES] +
-                      [make_template_fragment_key('org_member_count', (org_id,))
-                       for org_id in instance.organizations.values_list('id', flat=True)])
+                       for engine in EFFECTIVE_MATH_ENGINES])
 
 
 @receiver(post_save, sender=Contest)
@@ -66,11 +64,6 @@ def contest_update(sender, instance, **kwargs):
                        for engine in EFFECTIVE_MATH_ENGINES])
 
 
-@receiver(post_save, sender=License)
-def license_update(sender, instance, **kwargs):
-    cache.delete(make_template_fragment_key('license_html', (instance.id,)))
-
-
 @receiver(post_save, sender=Language)
 def language_update(sender, instance, **kwargs):
     cache.delete_many([make_template_fragment_key('language_html', (instance.id,)),
@@ -80,11 +73,6 @@ def language_update(sender, instance, **kwargs):
 @receiver(post_save, sender=Judge)
 def judge_update(sender, instance, **kwargs):
     cache.delete(make_template_fragment_key('judge_html', (instance.id,)))
-
-
-@receiver(post_save, sender=Comment)
-def comment_update(sender, instance, **kwargs):
-    cache.delete('comment_feed:%d' % instance.id)
 
 
 @receiver(post_save, sender=BlogPost)
@@ -111,12 +99,6 @@ def submission_delete(sender, instance, **kwargs):
 def contest_submission_delete(sender, instance, **kwargs):
     participation = instance.participation
     participation.recompute_results()
-
-
-@receiver(post_save, sender=Organization)
-def organization_update(sender, instance, **kwargs):
-    cache.delete_many([make_template_fragment_key('organization_html', (instance.id, engine))
-                       for engine in EFFECTIVE_MATH_ENGINES])
 
 
 _misc_config_i18n = [code for code, _ in settings.LANGUAGES]

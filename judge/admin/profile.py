@@ -48,12 +48,11 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
     form = ProfileForm
     fieldsets = (
         (None, {'fields': ('user', 'display_rank')}),
-        (_('User Settings'), {'fields': ('organizations', 'timezone', 'language', 'ace_theme', 'math_engine')}),
-        (_('Administration'), {'fields': ('is_external_user', 'mute', 'is_unlisted', 'is_totp_enabled',
+        (_('User Settings'), {'fields': ('timezone', 'language', 'ace_theme', 'math_engine')}),
+        (_('Administration'), {'fields': ('is_unlisted',
                                           'last_access', 'ip', 'current_contest', 'notes')}),
-        (_('Text Fields'), {'fields': ('about', 'user_script')}),
     )
-    list_display = ('user', 'full_name', 'email', 'is_totp_enabled', 'is_external_user',
+    list_display = ('user', 'full_name', 'email',
                     'date_joined', 'last_access', 'ip', 'show_public')
     ordering = ('user__username',)
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'ip', 'user__email')
@@ -64,24 +63,6 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
 
     def get_queryset(self, request):
         return super(ProfileAdmin, self).get_queryset(request).select_related('user')
-
-    def get_fieldsets(self, request, obj=None):
-        if request.user.has_perm('judge.totp'):
-            fieldsets = self.fieldsets[:]
-            fields = list(fieldsets[2][1]['fields'])
-            if 'totp_key' not in fields:
-                fields.insert(fields.index('is_totp_enabled') + 1, 'totp_key')
-                fields.insert(fields.index('totp_key') + 1, 'scratch_codes')
-            fieldsets[2][1]['fields'] = tuple(fields)
-            return fieldsets
-        else:
-            return self.fieldsets
-
-    def get_readonly_fields(self, request, obj=None):
-        fields = self.readonly_fields
-        if not request.user.has_perm('judge.totp'):
-            fields += ('is_totp_enabled',)
-        return fields
 
     def show_public(self, obj):
         return format_html('<a href="{0}" style="white-space:nowrap;">{1}</a>',

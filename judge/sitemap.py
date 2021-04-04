@@ -3,7 +3,7 @@ from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 from django.utils import timezone
 
-from judge.models import BlogPost, Contest, Organization, Problem, Solution
+from judge.models import BlogPost, Contest, Problem, Solution
 
 
 class ProblemSitemap(Sitemap):
@@ -37,17 +37,6 @@ class ContestSitemap(Sitemap):
 
     def location(self, obj):
         return reverse('contest_view', args=obj)
-
-
-class OrganizationSitemap(Sitemap):
-    changefreq = 'hourly'
-    priority = 0.5
-
-    def items(self):
-        return Organization.objects.values_list('id', 'slug')
-
-    def location(self, obj):
-        return reverse('organization_home', args=obj)
 
 
 class BlogPostSitemap(Sitemap):
