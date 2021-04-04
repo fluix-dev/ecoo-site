@@ -15,7 +15,7 @@ from judge.models.problem import Problem
 from judge.models.profile import Profile
 from judge.models.submission import Submission
 
-__all__ = ['Contest', 'ContestTag', 'ContestParticipation', 'ContestProblem', 'ContestSubmission', 'Rating']
+__all__ = ['Contest', 'ContestParticipation', 'ContestProblem', 'ContestSubmission', 'Rating']
 
 
 class MinValueOrNoneValidator(MinValueValidator):

@@ -1,7 +1,5 @@
 import json
-import re
 from collections import defaultdict, namedtuple
-from datetime import date, datetime, time, timedelta
 from functools import partial
 from itertools import chain
 from operator import attrgetter, itemgetter
@@ -9,22 +7,19 @@ from operator import attrgetter, itemgetter
 from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.cache import cache
-from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
-from django.db.models import Case, Count, F, FloatField, IntegerField, Max, Min, Q, Sum, Value, When
+from django.db.models import Case, Count, F, FloatField, IntegerField, Max, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
-from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
+from django.http import Http404, HttpResponseBadRequest, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
-from django.template.defaultfilters import date as date_filter
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.utils.timezone import make_aware
 from django.utils.translation import gettext as _, gettext_lazy
-from django.views.generic import ListView, TemplateView
+from django.views.generic import ListView
 from django.views.generic.detail import BaseDetailView, DetailView, SingleObjectMixin, View
 
 from judge import event_poster as event
@@ -37,7 +32,6 @@ from judge.utils.opengraph import generate_opengraph
 from judge.utils.problems import _get_result_data
 from judge.utils.ranker import ranker
 from judge.utils.stats import get_bar_chart, get_pie_chart
-from judge.utils.strings import safe_int_or_none
 from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleObjectFormView, TitleMixin, \
     generic_message
 
@@ -111,8 +105,6 @@ class ContestList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ContestL
         context['now'] = self._now
         context['first_page_href'] = '.'
         context['page_suffix'] = '#past-contests'
-
-        accessible_contests = super().get_queryset()
 
         context.update(self.get_sort_context())
         context.update(self.get_sort_paginate_context())

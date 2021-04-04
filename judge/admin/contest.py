@@ -344,7 +344,7 @@ class ContestParticipationAdmin(admin.ModelAdmin):
 
 class ContestRegistrationAdmin(admin.ModelAdmin):
     fields = ('contest', 'user', 'data')
-    list_display = ('contest', 'username',)
+    list_display = ('contest', 'username')
     search_fields = ('contest__key', 'contest__name', 'user__user__username')
     form = ContestParticipationForm
 

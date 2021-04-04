@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db.models import Count, Max, Q
+from django.db.models import Max
 from django.http import Http404
 from django.urls import reverse
 from django.utils import timezone
@@ -38,7 +38,6 @@ class PostList(ListView):
         context['page_prefix'] = reverse('blog_post_list')
         context['new_problems'] = Problem.get_public_problems() \
                                          .order_by('-date', 'code')[:settings.DMOJ_BLOG_NEW_PROBLEM_COUNT]
-        context['page_titles'] = CacheDict(lambda page: Comment.get_page_title(page))
 
         context['has_clarifications'] = False
         if self.request.user.is_authenticated:

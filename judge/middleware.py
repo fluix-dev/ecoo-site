@@ -1,8 +1,4 @@
-from django.conf import settings
-from django.contrib.auth.models import User
-from django.urls import Resolver404, resolve, reverse
-from django.utils.http import urlquote
-from requests.exceptions import HTTPError
+from django.urls import Resolver404, resolve
 
 
 class ShortCircuitMiddleware:

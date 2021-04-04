@@ -6,7 +6,6 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import get_default_password_validators
 from django.forms import ChoiceField, ModelChoiceField
-from django.shortcuts import render
 from django.utils.translation import gettext, gettext_lazy as _
 from registration.backends.default.views import (ActivationView as OldActivationView,
                                                  RegistrationView as OldRegistrationView)

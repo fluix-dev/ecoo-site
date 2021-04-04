@@ -1,20 +1,19 @@
 import json
-from operator import attrgetter, itemgetter
+from operator import attrgetter
 
 from django import forms
 from django.conf import settings
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
-from django.db.models import Q
-from django.forms import BooleanField, CharField, ChoiceField, Form, ModelForm, MultipleChoiceField
+from django.forms import CharField, ChoiceField, Form, ModelForm
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
 from django_ace import AceWidget
 from judge.models import Contest, Language, PrivateMessage, Problem, Profile, Submission
-from judge.widgets import HeavyPreviewPageDownWidget, MathJaxPagedownWidget, PagedownWidget, Select2MultipleWidget, \
-    Select2Widget
+from judge.widgets import HeavyPreviewPageDownWidget, MathJaxPagedownWidget, PagedownWidget, Select2Widget
+
 
 def fix_unicode(string, unsafe=tuple('\u202a\u202b\u202d\u202e')):
     return string + (sum(k in unsafe for k in string) - string.count('\u202c')) * '\u202c'

@@ -14,7 +14,7 @@ from judge.feed import AtomBlogFeed, AtomProblemFeed, BlogFeed, ProblemFeed
 from judge.sitemap import BlogPostSitemap, ContestSitemap, HomePageSitemap, ProblemSitemap, \
     SolutionSitemap, UrlSitemap, UserSitemap
 from judge.views import TitledTemplateView, blog, contests, language, \
-    preview, problem, problem_manage, ranked_submission, register, stats, status, submission, tasks, ticket, \
+    preview, problem, problem_manage, ranked_submission, stats, status, submission, tasks, ticket, \
     user, widgets
 from judge.views.problem_data import ProblemDataView, ProblemSubmissionDiff, \
     problem_data_file, problem_init_view

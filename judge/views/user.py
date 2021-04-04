@@ -1,23 +1,16 @@
-import itertools
 import json
-import os
 from datetime import datetime
-from operator import attrgetter, itemgetter
 
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.models import Permission
 from django.contrib.auth.views import LoginView, PasswordChangeView, redirect_to_login
-from django.contrib.contenttypes.models import ContentType
-from django.core.cache import cache
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Max, Min
 from django.db.models.fields import DateField
 from django.db.models.functions import Cast, ExtractYear
-from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
@@ -25,23 +18,17 @@ from django.utils.formats import date_format
 from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _, gettext_lazy
-from django.views.decorators.http import require_POST
-from django.views.generic import DetailView, FormView, ListView, TemplateView, View
+from django.views.generic import DetailView, ListView, TemplateView
 from reversion import revisions
 
 from judge.forms import CustomAuthenticationForm, ProfileForm
 from judge.models import Profile, Rating, Submission, Ticket
-from judge.utils.cachedict import CacheDict
-from judge.utils.celery import task_status_by_id, task_status_url_by_id
 from judge.utils.problems import contest_completed_ids, user_completed_ids
 from judge.utils.pwned import PwnedPasswordsValidator
-from judge.utils.ranker import ranker
-from judge.utils.unicode import utf8text
-from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, TitleMixin, add_file_response, generic_message
+from judge.utils.views import DiggPaginatorMixin, TitleMixin, generic_message
 from .contests import ContestRanking
 
-__all__ = ['UserPage', 'UserAboutPage', 'UserList', 'UserDashboard', 'UserProblemsPage', 'UserDownloadData',
-           'UserPrepareData', 'users', 'edit_profile']
+__all__ = ['UserPage', 'UserAboutPage', 'UserList', 'UserDashboard', 'users', 'edit_profile']
 
 
 def remap_keys(iterable, mapping):

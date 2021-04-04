@@ -3,7 +3,6 @@ import os
 import shutil
 from datetime import timedelta
 from operator import itemgetter
-from random import randrange
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
