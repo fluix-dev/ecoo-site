@@ -41,25 +41,10 @@ class Contest(models.Model):
     is_virtualable = models.BooleanField(verbose_name=_('virtualable'), default=True,
                                          help_text=_('Whether a user can virtually participate '
                                                      'in this contest or not.'))
-    is_rated = models.BooleanField(verbose_name=_('contest rated'), help_text=_('Whether this contest can be rated.'),
-                                   default=False)
     hide_scoreboard = models.BooleanField(verbose_name=_('hide scoreboard'),
                                           help_text=_('Whether the scoreboard should remain hidden for the duration '
                                                       'of the contest.'),
                                           default=False)
-    view_contest_scoreboard = models.ManyToManyField(Profile, verbose_name=_('view contest scoreboard'), blank=True,
-                                                     related_name='view_contest_scoreboard',
-                                                     help_text=_('These users will be able to view the scoreboard.'))
-    use_clarifications = models.BooleanField(verbose_name=_('no comments'),
-                                             help_text=_("Use clarification system instead of comments."),
-                                             default=True)
-    rating_floor = models.IntegerField(verbose_name=('rating floor'), help_text=_('Rating floor for contest'),
-                                       null=True, blank=True)
-    rating_ceiling = models.IntegerField(verbose_name=('rating ceiling'), help_text=_('Rating ceiling for contest'),
-                                         null=True, blank=True)
-    rate_all = models.BooleanField(verbose_name=_('rate all'), help_text=_('Rate all users who joined.'), default=False)
-    rate_exclude = models.ManyToManyField(Profile, verbose_name=_('exclude from ratings'), blank=True,
-                                          related_name='rate_exclude+')
     user_count = models.IntegerField(verbose_name=_('the amount of live participants'), default=0)
     summary = models.TextField(blank=True, verbose_name=_('contest summary'),
                                help_text=_('Plain-text, shown in meta description tag, e.g. for social media.'))
@@ -136,10 +121,6 @@ class Contest(models.Model):
         if self.show_scoreboard:
             return True
         if self.is_editable_by(user):
-            return True
-        if user.is_authenticated and self.view_contest_scoreboard.filter(id=user.profile.id).exists():
-            return True
-        if self.partially_hide_scoreboard and self.has_completed_contest(user):
             return True
         return False
 
@@ -269,13 +250,6 @@ class Contest(models.Model):
             queryset = queryset.filter(q)
         return queryset.distinct()
 
-    def rate(self):
-        Rating.objects.filter(contest__end_time__range=(self.end_time, self._now)).delete()
-        for contest in Contest.objects.filter(
-            is_rated=True, end_time__range=(self.end_time, self._now),
-        ).order_by('end_time'):
-            rate_contest(contest)
-
     class Meta:
         permissions = (
             ('join_all_contest', _('Join all contests')),
@@ -319,8 +293,6 @@ class ContestParticipation(models.Model):
     def set_disqualified(self, disqualified):
         self.is_disqualified = disqualified
         self.recompute_results()
-        if self.contest.is_rated and self.contest.ratings.exists():
-            self.contest.rate()
         if self.is_disqualified:
             if self.user.current_contest == self:
                 self.user.remove_contest()

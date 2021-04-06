@@ -90,18 +90,6 @@ class UserPage(TitleMixin, UserMixin, DetailView):
         context['hide_solved'] = int(self.hide_solved)
         context['authored'] = self.object.authored_problems.filter(is_public=True) \
                                   .order_by('code')
-        rating = self.object.ratings.order_by('-contest__end_time')[:1]
-        context['rating'] = rating[0] if rating else None
-
-        context['rank'] = Profile.objects.filter(is_unlisted=False).count() + 1
-
-        if rating:
-            context['rating_rank'] = Profile.objects.filter(is_unlisted=False,
-                                                            rating__gt=self.object.rating).count() + 1
-            context['rated_users'] = Profile.objects.filter(is_unlisted=False,
-                                                            rating__isnull=False).count()
-        context.update(self.object.ratings.aggregate(min_rating=Min('rating'), max_rating=Max('rating'),
-                                                     contests=Count('contest')))
         return context
 
     def get(self, request, *args, **kwargs):
@@ -161,50 +149,6 @@ class UserDashboard(UserPage):
 
 class UserAboutPage(UserPage):
     template_name = 'user/user-about.html'
-
-    def get_context_data(self, **kwargs):
-        context = super(UserAboutPage, self).get_context_data(**kwargs)
-        ratings = context['ratings'] = self.object.ratings.order_by('-contest__end_time').select_related('contest') \
-            .defer('contest__description')
-
-        context['rating_data'] = mark_safe(json.dumps([{
-            'label': rating.contest.name,
-            'rating': rating.rating,
-            'ranking': rating.rank,
-            'link': '%s#!%s' % (reverse('contest_ranking', args=(rating.contest.key,)), self.object.user.username),
-            'timestamp': (rating.contest.end_time - EPOCH).total_seconds() * 1000,
-            'date': date_format(rating.contest.end_time, _('M j, Y, G:i')),
-            'class': rating_class(rating.rating),
-            'height': '%.3fem' % rating_progress(rating.rating),
-        } for rating in ratings]))
-
-        if ratings:
-            user_data = self.object.ratings.aggregate(Min('rating'), Max('rating'))
-            global_data = Rating.objects.aggregate(Min('rating'), Max('rating'))
-            min_ever, max_ever = global_data['rating__min'], global_data['rating__max']
-            min_user, max_user = user_data['rating__min'], user_data['rating__max']
-            delta = max_user - min_user
-            ratio = (max_ever - max_user) / (max_ever - min_ever) if max_ever != min_ever else 1.0
-            context['max_graph'] = max_user + ratio * delta
-            context['min_graph'] = min_user + ratio * delta - delta
-
-        submissions = (
-            self.object.submission_set
-            .annotate(date_only=Cast('date', DateField()))
-            .values('date_only').annotate(cnt=Count('id'))
-        )
-
-        context['submission_data'] = mark_safe(json.dumps({
-            date_counts['date_only'].isoformat(): date_counts['cnt'] for date_counts in submissions
-        }))
-        context['submission_metadata'] = mark_safe(json.dumps({
-            'min_year': (
-                self.object.submission_set
-                .annotate(year_only=ExtractYear('date'))
-                .aggregate(min_year=Min('year_only'))['min_year']
-            ),
-        }))
-        return context
 
 
 @login_required

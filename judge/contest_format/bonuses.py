@@ -84,7 +84,6 @@ class BonusesContestFormat(DefaultContestFormat):
     def display_user_problem(self, participation, contest_problem):
         format_data = (participation.format_data or {}).get(str(contest_problem.id))
         if format_data:
-            pretest = ('pretest-' if self.contest.run_pretests_only and contest_problem.is_pretested else '')
             first_solve = (' first-solve' if format_data['first_solve'] else '')
             bonus = format_html(
                 '<font style="font-size:10px;"> +{bonus}</font>',
@@ -93,7 +92,7 @@ class BonusesContestFormat(DefaultContestFormat):
 
             return format_html(
                 '<td class="{state}"><a href="{url}">{points}{bonus}<div class="solving-time">{time}</div></a></td>',
-                state=pretest + self.best_solution_state(format_data['points'], contest_problem.points) + first_solve,
+                state=self.best_solution_state(format_data['points'], contest_problem.points) + first_solve,
                 url=reverse('contest_user_submissions',
                             args=[self.contest.key, participation.user.user.username, contest_problem.problem.code]),
                 points=floatformat(format_data['points']),

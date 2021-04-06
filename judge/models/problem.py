@@ -300,7 +300,7 @@ class Problem(models.Model):
 
     @property
     def markdown_style(self):
-        return 'problem-full' if self.is_full_markup else 'problem'
+        return 'problem-full'
 
     def save(self, *args, **kwargs):
         super(Problem, self).save(*args, **kwargs)
@@ -320,7 +320,6 @@ class Problem(models.Model):
             ('edit_own_problem', _('Edit own problems')),
             ('edit_all_problem', _('Edit all problems')),
             ('edit_public_problem', _('Edit all public problems')),
-            ('problem_full_markup', _('Edit problems with full markup')),
             ('clone_problem', _('Clone problem')),
             ('change_public_visibility', _('Change is_public field')),
             ('change_manually_managed', _('Change is_manually_managed field')),

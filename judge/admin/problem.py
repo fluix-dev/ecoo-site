@@ -36,8 +36,6 @@ class ProblemForm(ModelForm):
             'testers': AdminHeavySelect2MultipleWidget(data_view='profile_select2', attrs={'style': 'width: 100%'}),
             'banned_users': AdminHeavySelect2MultipleWidget(data_view='profile_select2',
                                                             attrs={'style': 'width: 100%'}),
-            'types': AdminSelect2MultipleWidget,
-            'group': AdminSelect2Widget,
             'description': AdminMartorWidget(attrs={'data-markdownfy-url': reverse_lazy('problem_preview')}),
         }
 
@@ -67,8 +65,7 @@ class LanguageLimitInline(admin.TabularInline):
 
 
 class ProblemClarificationForm(ModelForm):
-    class Meta:
-        widgets = {'description': AdminMartorWidget(attrs={'data-markdownfy-url': reverse_lazy('comment_preview')})}
+    pass
 
 
 class ProblemClarificationInline(admin.StackedInline):
@@ -108,24 +105,16 @@ class ProblemTranslationInline(admin.StackedInline):
     form = ProblemTranslationForm
     extra = 0
 
-    def has_permission_full_markup(self, request, obj=None):
-        if not obj:
-            return True
-        return request.user.has_perm('judge.problem_full_markup') or not obj.is_full_markup
-
-    has_add_permission = has_change_permission = has_delete_permission = has_permission_full_markup
-
 
 class ProblemAdmin(NoBatchDeleteMixin, VersionAdmin):
     fieldsets = (
         (None, {
             'fields': (
                 'code', 'name', 'is_public', 'is_manually_managed', 'date', 'authors', 'curators', 'testers',
-                'is_full_markup', 'description', 'license',
+                'description',
             ),
         }),
         (_('Social Media'), {'classes': ('collapse',), 'fields': ('og_image', 'summary')}),
-        (_('Taxonomy'), {'fields': ('types', 'group')}),
         (_('Points'), {'fields': (('points', 'partial'), 'short_circuit')}),
         (_('Limits'), {'fields': ('time_limit', 'memory_limit')}),
         (_('Language'), {'fields': ('allowed_languages',)}),

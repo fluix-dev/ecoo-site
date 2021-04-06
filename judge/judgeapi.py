@@ -62,7 +62,7 @@ def judge_submission(submission, rejudge=False, batch_rejudge=False, judge_id=No
         # This is set proactively; it might get unset in judgecallback's on_grading_begin if the problem doesn't
         # actually have pretests stored on the judge.
         updates['is_pretested'] = all(ContestSubmission.objects.filter(submission=submission)
-                                      .values_list('problem__contest__run_pretests_only', 'problem__is_pretested')[0])
+                                      .values_list( 'problem__is_pretested')[0])
     except IndexError:
         priority = DEFAULT_PRIORITY
     else:

@@ -79,14 +79,7 @@ class ContestProblemInline(admin.TabularInline):
 class ContestForm(ModelForm):
     def __init__(self, *args, **kwargs):
         super(ContestForm, self).__init__(*args, **kwargs)
-        if 'rate_exclude' in self.fields:
-            if self.instance and self.instance.id:
-                self.fields['rate_exclude'].queryset = \
-                    Profile.objects.filter(contest_history__contest=self.instance).distinct()
-            else:
-                self.fields['rate_exclude'].queryset = Profile.objects.none()
         self.fields['banned_users'].widget.can_add_related = False
-        self.fields['view_contest_scoreboard'].widget.can_add_related = False
 
     def clean(self):
         cleaned_data = super(ContestForm, self).clean()
@@ -100,8 +93,6 @@ class ContestForm(ModelForm):
             'tags': AdminSelect2MultipleWidget,
             'banned_users': AdminHeavySelect2MultipleWidget(data_view='profile_select2',
                                                             attrs={'style': 'width: 100%'}),
-            'view_contest_scoreboard': AdminHeavySelect2MultipleWidget(data_view='profile_select2',
-                                                                       attrs={'style': 'width: 100%'}),
             'description': AdminMartorWidget(attrs={'data-markdownfy-url': reverse_lazy('contest_preview')}),
         }
 
@@ -109,26 +100,20 @@ class ContestForm(ModelForm):
 class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
     fieldsets = (
         (None, {'fields': ('key', 'name', 'organizers')}),
-        (_('Settings'), {'fields': ('is_visible', 'is_virtualable', 'use_clarifications',
-                                    'hide_problem_tags', 'hide_scoreboard',
-                                    'partially_hide_scoreboard', 'run_pretests_only',
-                                    'is_locked', 'points_precision', 'access_code')}),
+        (_('Settings'), {'fields': ('is_visible', 'is_virtualable',
+                                    'hide_scoreboard',
+                                    'is_locked', 'points_precision')}),
         (_('Scheduling'), {'fields': ('start_time', 'end_time', 'time_limit')}),
-        (_('Details'), {'fields': ('description', 'og_image', 'logo_override_image', 'tags', 'summary')}),
+        (_('Details'), {'fields': ('description', 'summary')}),
         (_('Format'), {'fields': ('format_name', 'format_config', 'problem_label_script')}),
-        (_('Rating'), {'fields': ('is_rated', 'rate_all', 'rating_floor', 'rating_ceiling', 'rate_exclude')}),
-        (_('Access'), {'fields': ('view_contest_scoreboard',)}),
         (_('Justice'), {'fields': ('banned_users',)}),
     )
-    list_display = ('key', 'name', 'is_visible', 'is_rated', 'is_locked', 'start_time', 'end_time', 'time_limit',
-                    'user_count')
+    list_display = ('key', 'name', 'is_visible', 'is_locked', 'start_time', 'end_time', 'time_limit', 'user_count')
     search_fields = ('key', 'name')
     inlines = [ContestProblemInline]
     actions_on_top = True
     actions_on_bottom = True
     form = ContestForm
-    change_list_template = 'admin/judge/contest/change_list.html'
-    filter_horizontal = ['rate_exclude']
     date_hierarchy = 'start_time'
 
     def get_actions(self, request):
@@ -154,12 +139,8 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         readonly = []
-        if not request.user.has_perm('judge.contest_rating'):
-            readonly += ['is_rated', 'rate_all', 'rate_exclude']
         if not request.user.has_perm('judge.lock_contest'):
             readonly += ['is_locked']
-        if not request.user.has_perm('judge.contest_access_code'):
-            readonly += ['access_code']
         if not request.user.has_perm('judge.change_contest_visibility'):
             readonly += ['is_visible']
         if not request.user.has_perm('judge.contest_problem_label'):
@@ -241,8 +222,6 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
 
     def get_urls(self):
         return [
-            url(r'^rate/all/$', self.rate_all_view, name='judge_contest_rate_all'),
-            url(r'^(\d+)/rate/$', self.rate_view, name='judge_contest_rate'),
             url(r'^(\d+)/judge/(\d+)/$', self.rejudge_view, name='judge_contest_rejudge'),
         ] + super(ContestAdmin, self).get_urls()
 
@@ -255,27 +234,6 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
                                              '%d submissions were successfully scheduled for rejudging.',
                                              len(queryset)) % len(queryset))
         return HttpResponseRedirect(reverse('admin:judge_contest_change', args=(contest_id,)))
-
-    def rate_all_view(self, request):
-        if not request.user.has_perm('judge.contest_rating'):
-            raise PermissionDenied()
-        with transaction.atomic():
-            with connection.cursor() as cursor:
-                cursor.execute('TRUNCATE TABLE `%s`' % Rating._meta.db_table)
-            Profile.objects.update(rating=None)
-            for contest in Contest.objects.filter(is_rated=True, end_time__lte=timezone.now()).order_by('end_time'):
-                rate_contest(contest)
-        return HttpResponseRedirect(reverse('admin:judge_contest_changelist'))
-
-    def rate_view(self, request, id):
-        if not request.user.has_perm('judge.contest_rating'):
-            raise PermissionDenied()
-        contest = get_object_or_404(Contest, id=id)
-        if not contest.is_rated or not contest.ended:
-            raise Http404()
-        with transaction.atomic():
-            contest.rate()
-        return HttpResponseRedirect(request.META.get('HTTP_REFERER', reverse('admin:judge_contest_changelist')))
 
     def get_form(self, request, obj=None, **kwargs):
         form = super(ContestAdmin, self).get_form(request, obj, **kwargs)
