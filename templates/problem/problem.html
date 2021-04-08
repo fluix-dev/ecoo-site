@@ -1,6 +1,5 @@
 {% extends "common-content.html" %}
 {% block content_media %}
-    {% include "comments/media-css.html" %}
     <style>
         .title-state {
             font-size: 2em;
@@ -42,10 +41,6 @@
             padding-top: 0.1em;
         }
     </style>
-{% endblock %}
-
-{% block content_js_media %}
-    {% include "comments/media-js.html" %}
 {% endblock %}
 
 {% block title_row %}
@@ -322,12 +317,5 @@
                 <p class="no-comments-message">{{ _('No clarifications have been made at this time.') }}</p>
             {% endif %}
         </div>
-    {% else %}
-        {% include "comments/list.html" %}
     {% endif %}
-{% endblock %}
-
-{% block bodyend %}
-    {{ super() }}
-    {% include "comments/math.html" %}
 {% endblock %}
