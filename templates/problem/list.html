@@ -175,18 +175,6 @@
             <div id="content-right" class="problems">
                 <div class="info-float">
                     {% include "problem/search-form.html" %}
-                    {% if hot_problems %}
-                        <div class="sidebox">
-                            <h3>{{ _('Hot problems') }} <i class="fa fa-fire"></i></h3>
-                            <div class="sidebox-content">
-                                <ul class="problem-list">{% for problem in hot_problems %}
-                                    <li><a href="{{ url('problem_detail', problem.code) }}" class="hot-problem-link">
-                                        {{ problem.name }}
-                                    </a></li>
-                                {% endfor %}</ul>
-                            </div>
-                        </div>
-                    {% endif %}
                 </div>
             </div>
         {% endif %}
@@ -266,9 +254,6 @@
                             </td>
                         {% endif %}
                         <td class="p">{{ problem.points|floatformat }}{% if problem.partial %}p{% endif %}</td>
-                        {% if not request.in_contest %}
-                            <td class="ac-rate">{{ problem.ac_rate|floatformat(1) }}%</td>
-                        {% endif %}
                         <td class="users">
                             <a href="{{ url('ranked_submissions', problem.code) }}">
                                 {% if not request.in_contest or not hide_contest_scoreboard %}

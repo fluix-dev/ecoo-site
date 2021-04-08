@@ -30,7 +30,7 @@ from judge.models import ContestSubmission, Judge, Language, Problem, \
 from judge.pdf_problems import DefaultPdfMaker, HAS_PDF
 from judge.utils.diggpaginator import DiggPaginator
 from judge.utils.opengraph import generate_opengraph
-from judge.utils.problems import contest_attempted_ids, contest_completed_ids, hot_problems, user_attempted_ids, \
+from judge.utils.problems import contest_attempted_ids, contest_completed_ids, user_attempted_ids, \
     user_completed_ids
 from judge.utils.strings import safe_float_or_none, safe_int_or_none
 from judge.utils.tickets import own_ticket_filter
@@ -283,7 +283,7 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
     sql_sort = frozenset(('points', 'user_count', 'code'))
     manual_sort = frozenset(('name', 'solved', 'type'))
     all_sorts = sql_sort | manual_sort
-    default_desc = frozenset(('points', 'ac_rate', 'user_count'))
+    default_desc = frozenset(('points', 'user_count'))
     default_sort = 'code'
 
     def get_paginator(self, queryset, per_page, orphans=0,
@@ -401,10 +401,8 @@ class ProblemList(QueryStringSortMixin, TitleMixin, SolvedProblemMixin, ListView
         context.update(self.get_sort_paginate_context())
         if not self.in_contest:
             context.update(self.get_sort_context())
-            context['hot_problems'] = hot_problems(timedelta(days=1), settings.DMOJ_PROBLEM_HOT_PROBLEM_COUNT)
             context['point_start'], context['point_end'], context['point_values'] = self.get_noui_slider_points()
         else:
-            context['hot_problems'] = None
             context['point_start'], context['point_end'], context['point_values'] = 0, 0, {}
             context['hide_contest_scoreboard'] = self.contest.hide_scoreboard
         return context
@@ -657,7 +655,6 @@ class ProblemClone(ProblemMixin, PermissionRequiredMixin, TitleMixin, SingleObje
         types = problem.types.all()
         problem.pk = None
         problem.is_public = False
-        problem.ac_rate = 0
         problem.user_count = 0
         problem.code = form.cleaned_data['code']
         problem.save()

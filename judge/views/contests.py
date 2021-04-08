@@ -415,10 +415,6 @@ class ContestStats(TitleMixin, ContestMixin, DetailView):
                     for name, data in result_data.items()
                 ],
             },
-            'problem_ac_rate': get_bar_chart(
-                queryset.values('contest__problem__order', 'problem__name').annotate(ac_rate=ac_rate)
-                        .order_by('contest__problem__order').values_list('problem__name', 'ac_rate'),
-            ),
             'language_count': get_pie_chart(
                 queryset.values('language__name').annotate(count=Count('language__name'))
                         .filter(count__gt=0).order_by('-count').values_list('language__name', 'count'),

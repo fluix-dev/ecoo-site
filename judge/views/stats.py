@@ -55,13 +55,6 @@ def status_data(request, statuses=None):
     return JsonResponse(get_pie_chart(data), safe=False)
 
 
-def ac_rate(request):
-    rate = CombinedExpression(ac_count / Count('submission'), '*', Value(100.0), output_field=FloatField())
-    data = Language.objects.annotate(total=Count('submission'), ac_rate=rate).filter(total__gt=0) \
-        .order_by('total').values_list('name', 'ac_rate')
-    return JsonResponse(get_bar_chart(list(data)))
-
-
 def language(request):
     return render(request, 'stats/language.html', {
         'title': _('Language statistics'), 'tab': 'language',

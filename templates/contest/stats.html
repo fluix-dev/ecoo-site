@@ -17,7 +17,6 @@
         <script type="text/javascript">
             $(function () {
                 draw_stacked_bar_chart(window.stats.problem_status_count, $('#problem-status-count'));
-                draw_bar_chart(window.stats.problem_ac_rate, $('#problem-ac-rate'));
                 draw_pie_chart(window.stats.language_count, $('#language-count'));
                 draw_bar_chart(window.stats.language_ac_rate, $('#language-ac-rate'));
             });
@@ -37,11 +36,6 @@
 {% block body %}
     <h3>{{ _('Problem Status Distribution') }}</h3>
     <div id="problem-status-count" class="chart">
-        <canvas></canvas>
-    </div>
-
-    <h3>{{ _('Problem AC Rate') }}</h3>
-    <div id="problem-ac-rate" class="chart">
         <canvas></canvas>
     </div>
 
