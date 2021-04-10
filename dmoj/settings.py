@@ -168,10 +168,6 @@ else:
                 {
                     'model': 'judge.Problem',
                     'icon': 'fa-question-circle',
-                    'children': [
-                        'judge.ProblemGroup',
-                        'judge.ProblemType',
-                    ],
                 },
                 {
                     'model': 'judge.Submission',
@@ -186,8 +182,6 @@ else:
                     'icon': 'fa-bar-chart',
                     'children': [
                         'judge.ContestParticipation',
-                        'judge.ContestRegistration',
-                        'judge.ContestTag',
                     ],
                 },
                 {
@@ -207,7 +201,6 @@ else:
                     'icon': 'fa-bars',
                     'children': [
                         'judge.MiscConfig',
-                        'judge.License',
                         'sites.Site',
                         'redirects.Redirect',
                     ],
