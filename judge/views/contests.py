@@ -150,11 +150,10 @@ class ContestMixin(object):
         context['is_organizer'] = self.is_organizer
         context['can_edit'] = self.can_edit
 
-        if not self.object.og_image or not self.object.summary:
+        if not self.object.summary:
             metadata = generate_opengraph('generated-meta-contest:%d' % self.object.id,
                                           self.object.description, 'contest')
         context['meta_description'] = self.object.summary or metadata[0]
-        context['og_image'] = self.object.og_image or metadata[1]
         context['has_moss_api_key'] = settings.MOSS_API_KEY is not None
         context['logo_override_image'] = self.object.logo_override_image
 
