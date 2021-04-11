@@ -35,8 +35,6 @@ class PostList(ListView):
         context['title'] = self.title or _('Page %d of Posts') % context['page_obj'].number
         context['first_page_href'] = reverse('home')
         context['page_prefix'] = reverse('blog_post_list')
-        context['new_problems'] = Problem.get_public_problems() \
-                                         .order_by('-date', 'code')[:settings.DMOJ_BLOG_NEW_PROBLEM_COUNT]
 
         context['has_clarifications'] = False
         if self.request.user.is_authenticated:
