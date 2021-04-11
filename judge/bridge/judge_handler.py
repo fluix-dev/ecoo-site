@@ -393,10 +393,6 @@ class JudgeHandler(ZlibPacketHandler):
             problem=problem.code, finish=True,
         ))
 
-        if problem.is_public:
-            submission.user._updating_stats_only = True
-            submission.user.calculate_points()
-
         problem._updating_stats_only = True
         problem.update_stats()
         submission.update_contest()
