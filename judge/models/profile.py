@@ -66,7 +66,7 @@ class Profile(models.Model):
 
     @cached_property
     def css_class(self):
-        return self.get_user_css_class(self.display_rank, self.rating)
+        return self.get_user_css_class(self.display_rank)
 
     class Meta:
         permissions = (
