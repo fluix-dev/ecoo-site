@@ -59,7 +59,7 @@ class Profile(models.Model):
         return self.user.username
 
     @classmethod
-    def get_user_css_class(cls, display_rank, rating, rating_colors=settings.DMOJ_RATING_COLORS):
+    def get_user_css_class(cls, display_rank, rating=None, rating_colors=settings.DMOJ_RATING_COLORS):
         if rating_colors:
             return 'rating rate-none %s' % display_rank
         return display_rank
