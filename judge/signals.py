@@ -45,15 +45,6 @@ def problem_update(sender, instance, **kwargs):
         unlink_if_exists(get_pdf_path('%s.%s.pdf' % (instance.code, lang)))
 
 
-@receiver(post_save, sender=Profile)
-def profile_update(sender, instance, **kwargs):
-    if hasattr(instance, '_updating_stats_only'):
-        return
-
-    cache.delete_many([make_template_fragment_key('user_about', (instance.id, engine))
-                       for engine in EFFECTIVE_MATH_ENGINES])
-
-
 @receiver(post_save, sender=Contest)
 def contest_update(sender, instance, **kwargs):
     if hasattr(instance, '_updating_stats_only'):

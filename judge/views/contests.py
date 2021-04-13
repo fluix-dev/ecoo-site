@@ -464,7 +464,7 @@ def make_contest_ranking_profile(contest, participation, contest_problems):
 
 def base_contest_ranking_list(contest, problems, queryset):
     return [make_contest_ranking_profile(contest, participation, problems) for participation in
-            queryset.select_related('user__user', 'rating').defer('user__about')]
+            queryset.select_related('user__user', 'rating')]
 
 
 def contest_ranking_list(contest, problems):

@@ -34,12 +34,6 @@ class ProfileForm(ModelForm):
             fields.append('math_engine')
             widgets['math_engine'] = Select2Widget(attrs={'style': 'width:200px'})
 
-        if HeavyPreviewPageDownWidget is not None:
-            widgets['about'] = HeavyPreviewPageDownWidget(
-                preview=reverse_lazy('profile_preview'),
-                attrs={'style': 'max-width:700px;min-width:700px;width:700px'},
-            )
-
 
 class ProblemSubmitForm(ModelForm):
     source = CharField(max_length=65536, widget=AceWidget(theme='twilight', no_ace_media=True))
