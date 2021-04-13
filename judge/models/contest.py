@@ -184,7 +184,7 @@ class Contest(models.Model):
 
     update_user_count.alters_data = True
 
-    def is_joinable_by(self, user, check_registered=True):
+    def is_joinable_by(self, user):
         if not user.is_authenticated or not self.is_accessible_by(user):
             return False
         if self.ended:
@@ -194,9 +194,6 @@ class Contest(models.Model):
         if user.has_perm('judge.edit_own_contest') and \
                 self.organizers.filter(id=user.profile.id).exists():
             return True
-
-        if check_registered and not self.is_registered(user):
-            return False
 
         return False
 
