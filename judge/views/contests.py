@@ -426,7 +426,7 @@ class ContestStats(TitleMixin, ContestMixin, DetailView):
 
 ContestRankingProfile = namedtuple(
     'ContestRankingProfile',
-    'id user css_class username points cumtime tiebreaker organization participation '
+    'id user css_class username points cumtime tiebreaker participation '
     'participation_rating problem_cells result_cell',
 )
 
