@@ -243,7 +243,6 @@ class Contest(models.Model):
         queryset = cls.objects.defer('description')
         if not (user.has_perm('judge.edit_all_contest')):
             q = Q(is_visible=True)
-            q &= Q(view_contest_scoreboard=user.profile)
             q |= Q(organizers=user.profile)
             queryset = queryset.filter(q)
         return queryset.distinct()
