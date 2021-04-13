@@ -189,13 +189,7 @@ class Contest(models.Model):
             return False
         if self.ended:
             return self.is_virtualable
-        if user.has_perm('judge.join_all_contest'):
-            return True
-        if user.has_perm('judge.edit_own_contest') and \
-                self.organizers.filter(id=user.profile.id).exists():
-            return True
-
-        return False
+        return True
 
     class Inaccessible(Exception):
         pass
