@@ -191,6 +191,10 @@ class SubmissionAdmin(admin.ModelAdmin):
             submission.save()
             submission.update_contest()
 
+        for profile in Profile.objects.filter(id__in=queryset.values_list('user_id', flat=True).distinct()):
+            cache.delete('user_complete:%d' % profile.id)
+            cache.delete('user_attempted:%d' % profile.id)
+
         for participation in ContestParticipation.objects.filter(
                 id__in=queryset.values_list('contest__participation_id')).prefetch_related('contest'):
             participation.recompute_results()
