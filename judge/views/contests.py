@@ -233,34 +233,12 @@ class ContestClone(ContestMixin, PermissionRequiredMixin, TitleMixin, SingleObje
         return HttpResponseRedirect(reverse('admin:judge_contest_change', args=(contest.id,)))
 
 
-class ContestAccessDenied(Exception):
-    pass
-
-
-class ContestAccessCodeForm(forms.Form):
-    access_code = forms.CharField(max_length=255)
-
-    def __init__(self, *args, **kwargs):
-        super(ContestAccessCodeForm, self).__init__(*args, **kwargs)
-        self.fields['access_code'].widget.attrs.update({'autocomplete': 'off'})
-
-
 class ContestJoin(LoginRequiredMixin, ContestMixin, BaseDetailView):
-    def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        return self.ask_for_access_code()
-
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
-        try:
-            return self.join_contest(request)
-        except ContestAccessDenied:
-            if request.POST.get('access_code'):
-                return self.ask_for_access_code(ContestAccessCodeForm(request.POST))
-            else:
-                return HttpResponseRedirect(request.path)
+        return self.join_contest(request)
 
-    def join_contest(self, request, access_code=None):
+    def join_contest(self, request):
         contest = self.object
 
         if not contest.can_join and not self.is_organizer:
@@ -281,11 +259,7 @@ class ContestJoin(LoginRequiredMixin, ContestMixin, BaseDetailView):
                                    _('You have been declared persona non grata for this contest. '
                                      'You are permanently barred from joining this contest.'))
 
-        requires_access_code = (not self.can_edit and contest.access_code and access_code != contest.access_code)
         if contest.ended:
-            if requires_access_code:
-                raise ContestAccessDenied()
-
             while True:
                 virtual_id = max((ContestParticipation.objects.filter(contest=contest, user=profile)
                                   .aggregate(virtual_id=Max('virtual'))['virtual_id'] or 0) + 1, 1)
@@ -307,9 +281,6 @@ class ContestJoin(LoginRequiredMixin, ContestMixin, BaseDetailView):
                     contest=contest, user=profile, virtual=(SPECTATE if self.is_organizer else LIVE),
                 )
             except ContestParticipation.DoesNotExist:
-                if requires_access_code:
-                    raise ContestAccessDenied()
-
                 participation = ContestParticipation.objects.create(
                     contest=contest, user=profile, virtual=(SPECTATE if self.is_organizer else LIVE),
                     real_start=timezone.now(),
@@ -327,21 +298,6 @@ class ContestJoin(LoginRequiredMixin, ContestMixin, BaseDetailView):
         contest._updating_stats_only = True
         contest.update_user_count()
         return HttpResponseRedirect(reverse('problem_list'))
-
-    def ask_for_access_code(self, form=None):
-        contest = self.object
-        wrong_code = False
-        if form:
-            if form.is_valid():
-                if form.cleaned_data['access_code'] == contest.access_code:
-                    return self.join_contest(self.request, form.cleaned_data['access_code'])
-                wrong_code = True
-        else:
-            form = ContestAccessCodeForm()
-        return render(self.request, 'contest/access_code.html', {
-            'form': form, 'wrong_code': wrong_code,
-            'title': _('Enter access code for "%s"') % contest.name,
-        })
 
 
 class ContestLeave(LoginRequiredMixin, ContestMixin, BaseDetailView):
