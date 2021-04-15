@@ -2,7 +2,6 @@ from collections import OrderedDict
 
 from argon2 import PasswordHasher
 from django.contrib.auth.hashers import BasePasswordHasher, mask_hash
-from django.utils.datastructures import SortedDict
 
 
 class SpecialECOOPasswordHasher(BasePasswordHasher):
