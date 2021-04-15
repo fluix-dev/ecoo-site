@@ -19,7 +19,7 @@ class SpecialECOOPasswordHasher(BasePasswordHasher):
     def verify(self, password, encoded):
         algorithm, _ = encoded.split('$', 1)
         assert algorithm == self.algorithm
-        return self.ph.verify(encoded, password)
+        return self.ph.verify("$" + encoded, password)
 
     def safe_summary(self, encoded):
         algorithm, hash = encoded.split('$', 1)
