@@ -16,12 +16,12 @@ class SpecialECOOPasswordHasher(BasePasswordHasher):
         return self.ph.hash(password)
 
     def verify(self, password, encoded):
-        algorithm, _ = encoded[1:].split('$', 1)
+        algorithm, _ = encoded.split('$', 1)
         assert algorithm == self.algorithm
         return self.ph.verify(encoded, password)
 
     def safe_summary(self, encoded):
-        algorithm, hash = encoded[1:].split('$', 1)
+        algorithm, hash = encoded.split('$', 1)
         assert algorithm == self.algorithm
         return OrderedDict([
             (_('algorithm'), algorithm),
