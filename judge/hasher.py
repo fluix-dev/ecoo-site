@@ -14,7 +14,7 @@ class SpecialECOOPasswordHasher(BasePasswordHasher):
 
     def encode(self, password, salt):
         assert password
-        return self.ph.hash(password)
+        return self.ph.hash(password)[1:]
 
     def verify(self, password, encoded):
         algorithm, _ = encoded.split('$', 1)
