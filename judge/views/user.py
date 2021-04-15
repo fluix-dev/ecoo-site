@@ -154,7 +154,7 @@ class UserAboutPage(UserPage):
 @login_required
 def edit_profile(request):
     if request.method == 'POST':
-        form = ProfileForm(request.POST, instance=request.profile, user=request.user)
+        form = ProfileForm(request.POST, instance=request.profile)
         if form.is_valid():
             with transaction.atomic(), revisions.create_revision():
                 form.save()
