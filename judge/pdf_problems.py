@@ -123,6 +123,7 @@ class SeleniumPDFRender(BasePdfMaker):
 
         response = browser.execute_cdp_cmd('Page.printToPDF', self.template)
         self.log = self.get_log(browser)
+        browser.quit()
         if not response:
             return
 
